@@ -17,8 +17,7 @@ uptime_begin = +new Date
 app = express()
 server = http.createServer(app)
 
-app.set 'views', "server" # directory where the jade files are
-app.set 'view options', layout: false
+app.set 'views', "server/views" # directory where the jade files are
 app.set 'trust proxy', true
 
 
@@ -613,7 +612,7 @@ app.get '/:channel', (req, res) ->
 	if name in remote.get_types()
 		res.redirect "/#{name}/lobby"
 	else
-		res.render 'room.jade', { name }
+		res.render './game/room.jade', { name }
 
 app.get '/:type/:channel', (req, res) ->
 	name = req.params.channel
