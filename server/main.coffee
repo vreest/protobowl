@@ -6,6 +6,8 @@ BrowserIDStrategy = require('passport-browserid').Strategy
 fs = require 'fs'
 http = require 'http'
 url = require 'url'
+https = require 'https'
+qs = require 'qs'
 
 parseCookie = require('express/node_modules/cookie').parse
 rooms = {}
@@ -103,11 +105,10 @@ if app.settings.env is 'production' and remote.deploy
 	journal_config = remote.deploy.journal
 	console.log 'set to deployment defaults'
 
-
 app.use express.compress()
-# app.use express.staticCache()
 app.use express.cookieParser()
 app.use express.bodyParser()
+app.use express.session({ secret: 'keyboard cat' })
 app.use express.static('static')
 app.use express.favicon('static/img/favicon.ico')
 
@@ -165,24 +166,6 @@ log = (action, obj) ->
 log 'server_restart', {}
 
 public_room_list = ['hsquizbowl', 'lobby']
-
-
-passport.serializeUser (user, done) ->
-  done(null, user.email)
-
-
-passport.deserializeUser (email, done) ->
-  done(null, { email: email })
-
-
-passport.use(new BrowserIDStrategy({
-    audience: 'http://127.0.0.1:3000'
-  },
-  (email, done) ->
-    process.nextTick () ->
-      return done(null, { email: email })
-))
-
 
 
 class SocketQuizRoom extends QuizRoom
@@ -624,7 +607,56 @@ app.get '/new', (req, res) -> res.redirect '/' + names.generatePage()
 
 app.get '/', (req, res) -> res.redirect '/lobby'
 
-app.get '/:channel', ensureAuthenticated, (req, res) ->
+app.get '/bob-bob-bob', (req, res) ->
+	res.render './info/bob-bob-bob.jade', {user:req.session.email}
+
+
+app.get '/ugadadoogada', (req, res) ->
+	res.render './info/lobby.jade', {user:req.session.email}
+app.post '/auth/login', (req, res) ->
+	onVerifyResp = (bidRes) -> 
+		data = "";
+		bidRes.setEncoding('utf8');
+		bidRes.on 'data', (chunk) -> 
+			data += chunk;
+		
+
+		bidRes.on 'end', () -> 
+			verified = JSON.parse(data);
+			res.contentType('application/json');
+			if verified.status == 'okay'
+				console.info('browserid auth successful, setting req.session.email');
+				req.session.email = verified.email;
+				res.redirect('/ugadadoogada');
+			else
+				console.error(verified.reason);
+				res.writeHead(403);
+			
+			res.write(data);
+
+	assertion = req.body.assertion;
+
+	body = qs.stringify({
+		assertion: assertion,
+		audience: "localhost:5555"
+	})
+
+	console.info('verifying with browserid');
+	request = https.request({
+		host: 'verifier.login.persona.org',
+		path: '/verify',
+		method: 'POST',
+		headers: {
+			'content-type': 'application/x-www-form-urlencoded',
+			'content-length': body.length
+		}
+	}, onVerifyResp);
+	request.write(body);
+	request.end();
+
+
+
+app.get '/:channel', (req, res) ->
 	name = req.params.channel
 	if name in remote.get_types()
 		res.redirect "/#{name}/lobby"
@@ -634,25 +666,6 @@ app.get '/:channel', ensureAuthenticated, (req, res) ->
 app.get '/:type/:channel', (req, res) ->
 	name = req.params.channel
 	res.render './game/room.jade', { name }
-
-
-app.post '/auth/browserid', 
-	passport.authenticate('browserid', { failureRedirect: '/login' }),
-	(req, res) -> 
-		res.redirect('/')
-
-
-app.get '/logout', (req, res) ->
-	req.logout()
-	res.redirect('/')
-
-
-ensureAuthenticated = (req, res, next) ->
-	if req.isAuthenticated() 
-		return next()
-	res.redirect('/login')
-
-
 
 remote.initialize_remote()
 port = process.env.PORT || 5555
