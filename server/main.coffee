@@ -1,6 +1,8 @@
 console.log 'hello from protobowl v3', __dirname, process.cwd()
 
 express = require 'express'
+passport = require 'passport'
+BrowserIDStrategy = require('passport-browserid').Strategy
 fs = require 'fs'
 http = require 'http'
 url = require 'url'
@@ -19,7 +21,6 @@ server = http.createServer(app)
 
 app.set 'views', "server/views" # directory where the jade files are
 app.set 'trust proxy', true
-
 
 io = require('socket.io').listen(server)
 
@@ -151,8 +152,6 @@ app.use (req, res, next) ->
 		else
 			next()
 
-	
-
 log = (action, obj) ->
 	req = http.request log_config, ->
 		# console.log "saved log"
@@ -166,6 +165,24 @@ log = (action, obj) ->
 log 'server_restart', {}
 
 public_room_list = ['hsquizbowl', 'lobby']
+
+
+passport.serializeUser (user, done) ->
+  done(null, user.email)
+
+
+passport.deserializeUser (email, done) ->
+  done(null, { email: email })
+
+
+passport.use(new BrowserIDStrategy({
+    audience: 'http://127.0.0.1:3000'
+  },
+  (email, done) ->
+    process.nextTick () ->
+      return done(null, { email: email })
+))
+
 
 
 class SocketQuizRoom extends QuizRoom
@@ -467,7 +484,7 @@ clearInactive = (threshold) ->
 
 		for username, user of room.users
 			len++
-			if !user.online()
+			if !user.online() and user.id not in user.room.admins
 				evict_user = false
 				if overcrowded_room and username is oldest_user
 					evict_user = true
@@ -526,7 +543,7 @@ app.post '/stalkermode/algore', (req, res) ->
 		res.end("counted all cats in #{time}ms: #{util.inspect(layers)}")
 
 app.get '/stalkermode/full', (req, res) ->
-	res.render 'admin.jade', {
+	res.render './stalkermode/admin.jade', {
 		env: app.settings.env,
 		mem: util.inspect(process.memoryUsage()),
 		start: uptime_begin,
@@ -536,7 +553,7 @@ app.get '/stalkermode/full', (req, res) ->
 		rooms: rooms
 	}
 
-app.get '/stalkermode/users', (req, res) -> res.render 'users.jade', { rooms: rooms }
+app.get '/stalkermode/users', (req, res) -> res.render './stalkermode/users.jade', { rooms: rooms }
 
 app.get '/stalkermode/cook', (req, res) ->
 	remote.cook(req, res)
@@ -549,7 +566,7 @@ app.get '/stalkermode/logout', (req, res) ->
 
 app.get '/stalkermode/user/:room/:user', (req, res) ->
 	u = rooms?[req.params.room]?.users?[req.params.user]
-	res.render 'user.jade', { room: req.params.room, id: req.params.user, user: u, text: util.inspect(u)}
+	res.render './stalkermode/user.jade', { room: req.params.room, id: req.params.user, user: u, text: util.inspect(u)}
 
 app.post '/stalkermode/emit/:room/:user', (req, res) ->
 	u = rooms?[req.params.room]?.users?[req.params.user]
@@ -567,7 +584,7 @@ app.post '/stalkermode/disco/:room/:user', (req, res) ->
 
 app.get '/stalkermode', (req, res) ->
 	util = require('util')
-	res.render 'admin.jade', {
+	res.render './stalkermode/admin.jade', {
 		env: app.settings.env,
 		mem: util.inspect(process.memoryUsage()),
 		start: uptime_begin,
@@ -593,13 +610,13 @@ app.post '/stalkermode/reports/change_question/:id', (req, res) ->
 
 app.get '/stalkermode/reports/:type', (req, res) ->
 	remote.Report.find {describe: req.params.type}, (err, docs) ->
-		res.render 'reports.jade', { reports: docs, categories: remote.get_categories('qb') }
+		res.render './stalkermode/reports.jade', { reports: docs, categories: remote.get_categories('qb') }
 
-app.get '/stalkermode/patriot', (req, res) -> res.render 'dash.jade'
+app.get '/stalkermode/patriot', (req, res) -> res.render './stalkermode/dash.jade'
 
 app.get '/stalkermode/:other', (req, res) -> res.redirect '/stalkermode'
 
-app.get '/401', (req, res) -> res.render 'auth.jade', {}
+app.get '/401', (req, res) -> res.render './stalkermode/auth.jade', {}
 
 app.post '/401', (req, res) -> remote.authenticate(req, res)
 
@@ -607,7 +624,7 @@ app.get '/new', (req, res) -> res.redirect '/' + names.generatePage()
 
 app.get '/', (req, res) -> res.redirect '/lobby'
 
-app.get '/:channel', (req, res) ->
+app.get '/:channel', ensureAuthenticated, (req, res) ->
 	name = req.params.channel
 	if name in remote.get_types()
 		res.redirect "/#{name}/lobby"
@@ -616,7 +633,25 @@ app.get '/:channel', (req, res) ->
 
 app.get '/:type/:channel', (req, res) ->
 	name = req.params.channel
-	res.render 'room.jade', { name }
+	res.render './game/room.jade', { name }
+
+
+app.post '/auth/browserid', 
+	passport.authenticate('browserid', { failureRedirect: '/login' }),
+	(req, res) -> 
+		res.redirect('/')
+
+
+app.get '/logout', (req, res) ->
+	req.logout()
+	res.redirect('/')
+
+
+ensureAuthenticated = (req, res, next) ->
+	if req.isAuthenticated() 
+		return next()
+	res.redirect('/login')
+
 
 
 remote.initialize_remote()
