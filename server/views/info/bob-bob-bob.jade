@@ -1,0 +1,13 @@
+extends ../layouts/game-layout
+
+block content
+	if user
+		a#logout(href='javascript:navigator.id.logout()') Logout
+	else
+
+		a#browserid(href='javascript:navigator.id.request()') Sign in
+
+	
+			
+block scripts
+

@@ -613,35 +613,35 @@ app.get '/bob-bob-bob', (req, res) ->
 
 app.get '/ugadadoogada', (req, res) ->
 	res.render './info/lobby.jade', {user:req.session.email}
+
 app.post '/auth/login', (req, res) ->
 	onVerifyResp = (bidRes) -> 
 		data = "";
 		bidRes.setEncoding('utf8');
 		bidRes.on 'data', (chunk) -> 
-			data += chunk;
-		
+			data += chunk
 
 		bidRes.on 'end', () -> 
-			verified = JSON.parse(data);
-			res.contentType('application/json');
+			verified = JSON.parse(data)
+			res.contentType('application/json')
 			if verified.status == 'okay'
-				console.info('browserid auth successful, setting req.session.email');
-				req.session.email = verified.email;
-				res.redirect('/ugadadoogada');
+				console.info('browserid auth successful, setting req.session.email')
+				req.session.email = verified.email
+				res.redirect('/ugadadoogada')
 			else
-				console.error(verified.reason);
-				res.writeHead(403);
+				console.error(verified.reason)
+				res.writeHead(403)
 			
-			res.write(data);
+			res.write(data)
 
-	assertion = req.body.assertion;
+	assertion = req.body.assertion
 
 	body = qs.stringify({
 		assertion: assertion,
 		audience: "localhost:5555"
 	})
 
-	console.info('verifying with browserid');
+	console.info('verifying with browserid')
 	request = https.request({
 		host: 'verifier.login.persona.org',
 		path: '/verify',
@@ -650,22 +650,20 @@ app.post '/auth/login', (req, res) ->
 			'content-type': 'application/x-www-form-urlencoded',
 			'content-length': body.length
 		}
-	}, onVerifyResp);
-	request.write(body);
-	request.end();
-
-
+	}, onVerifyResp)
+	request.write(body)
+	request.end()
 
 app.get '/:channel', (req, res) ->
 	name = req.params.channel
 	if name in remote.get_types()
 		res.redirect "/#{name}/lobby"
 	else
-		res.render './game/room.jade', { name }
+		res.render './game/room.jade', { name, user:req.session.email }
 
 app.get '/:type/:channel', (req, res) ->
 	name = req.params.channel
-	res.render './game/room.jade', { name }
+	res.render './game/room.jade', { name, user:req.session.email }
 
 remote.initialize_remote()
 port = process.env.PORT || 5555

@@ -18,15 +18,29 @@ html(lang="en", manifest="/offline.appcache")
 						em.motto.hidden-phone(style="font-size: small")
 							| doing one thing and doing it acceptably well
 
+					if user
+						a.btn#signout Logout
+						a.btn(href='/profile') #{user}
+
+						script
+							var loggedInUser = user
+					else
+						form(id="login-form", action="/auth/login", method="POST")
+							input(id="assertion-field", type="hidden", name="assertion", value="")
+						a.btn#signin(href='javascript:navigator.id.request()') Signin
+
+						script
+							var loggedInUser = null
+
 					div.pull-right
 						a.btn.btn-primary.new-room(href="/new") New Room
-					
 		body
 			block content
 			block scripts
 		footer
 			script(src="/socket.io/socket.io.js")
 			script(src="https://login.persona.org/include.js")
+
 			script(type="text/javascript")
 				var _gaq = _gaq || [];
 				_gaq.push(['_setAccount', 'UA-34434821-1']);
@@ -36,6 +50,7 @@ html(lang="en", manifest="/offline.appcache")
 			// if(typeof jQuery == 'undefined') document.write(unescape("%3Cscript%20src%3D%22lib/jquery.min.js%22%3E%3C/script%3E"));
 			
 			script(src="/app.js")
+			script(src="/userLoginLogout.js")
 
 			script(type="text/javascript")
 				(function() {
