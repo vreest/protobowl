@@ -1,0 +1,37 @@
+extends ../layouts/game-layout
+
+
+block content
+	h2 Hello
+	if user
+		h2 #{user.email}
+
+		script 
+			var loggedInUser = '#{user.email}'
+	else
+		form(id="login-form", action="/auth/browserid", method="POST")
+			input(id="assertion-field", type="hidden", name="assertion", value="")
+
+		a.btn(href='javascript:navigator.id.request();')#browserid Sign in
+
+		script
+			var loggedInUser = null
+
+
+
+block scripts		
+	script(src="https://login.persona.org/include.js")
+
+	script
+		navigator.id.watch({
+			loggedInUser: loggedInUser,
+			onlogin: function(assertion) {
+				var assertion_field = document.getElementById("assertion-field");
+				assertion_field.value = assertion;
+				var login_form = document.getElementById("login-form");
+				login_form.submit();
+			},
+			onlogout: function() {
+				
+			}
+		});

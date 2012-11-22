@@ -1,12 +1,17 @@
 console.log 'hello from protobowl v3', __dirname, process.cwd()
 
 express = require 'express'
+passport = require 'passport'
+BrowserID = require('passport-browserid').Strategy
 fs = require 'fs'
 http = require 'http'
 url = require 'url'
+https = require 'https'
+qs = require 'qs'
 
 parseCookie = require('express/node_modules/cookie').parse
 rooms = {}
+logged_in_user = {}
 {QuizRoom} = require '../shared/room'
 {QuizPlayer} = require '../shared/player'
 {checkAnswer} = require '../shared/checker'
@@ -17,10 +22,8 @@ uptime_begin = +new Date
 app = express()
 server = http.createServer(app)
 
-app.set 'views', "server" # directory where the jade files are
-app.set 'view options', layout: false
+app.set 'views', "server/views" # directory where the jade files are
 app.set 'trust proxy', true
-
 
 io = require('socket.io').listen(server)
 
@@ -104,13 +107,67 @@ if app.settings.env is 'production' and remote.deploy
 	journal_config = remote.deploy.journal
 	console.log 'set to deployment defaults'
 
+mongoose = require('mongoose')
+db = mongoose.createConnection 'localhost', 'protobowluser_db'
+
+db.on 'error', (err) ->
+	console.log 'Database Error', err
+
+db.on 'open', (err) ->
+	console.log 'opened database', err
+
+user_schema = new mongoose.Schema {
+	email: String,
+	username: String,
+	ninja: Boolean,
+	events: Array
+}
+
+User = db.model 'User', user_schema
+users = User.collection
+users.ensureIndex { id: 1, email: 1, username: 1, ninja:1, events: 1 }
+
+
+get_user_data = (query, callback) ->
+	console.log("querin")
+	query.exec (err, user) ->
+		if err
+			return handleError(err)
+
+		logged_in_user = {"email":user.email, "username":user.username, "ninja":user.ninja}
+		callback(logged_in_user)
+
+
+# Passport Serialize and Deserialize Functions
+passport.serializeUser (user, done) ->
+	done null, user.email
+
+passport.deserializeUser (email, done) ->
+	done null, {email: email}
+
+# Passport-BrowserID Strategy
+passport.use 'browserid', new BrowserID {audience: 'localhost:5555'},
+	(email, done) ->
+		query = User.findOne {"email":email}
+
+		if !query
+			newUser = new User({'email':verified.email, 'username':'randomusername'})
+			newUser.save (err) ->
+				if err
+					return handleError(err)
+		else
+			get_user_data query, (data) ->
+				done(err, data)
+
 
 app.use express.compress()
-# app.use express.staticCache()
 app.use express.cookieParser()
 app.use express.bodyParser()
+app.use express.session({ secret: 'keyboard cat' })
 app.use express.static('static')
 app.use express.favicon('static/img/favicon.ico')
+app.use(passport.initialize());
+app.use(passport.session());
 
 crypto = require 'crypto'
 
@@ -152,8 +209,6 @@ app.use (req, res, next) ->
 					res.redirect "/401"
 		else
 			next()
-
-	
 
 log = (action, obj) ->
 	req = http.request log_config, ->
@@ -528,7 +583,7 @@ app.post '/stalkermode/algore', (req, res) ->
 		res.end("counted all cats in #{time}ms: #{util.inspect(layers)}")
 
 app.get '/stalkermode/full', (req, res) ->
-	res.render 'admin.jade', {
+	res.render './stalkermode/admin.jade', {
 		env: app.settings.env,
 		mem: util.inspect(process.memoryUsage()),
 		start: uptime_begin,
@@ -538,7 +593,7 @@ app.get '/stalkermode/full', (req, res) ->
 		rooms: rooms
 	}
 
-app.get '/stalkermode/users', (req, res) -> res.render 'users.jade', { rooms: rooms }
+app.get '/stalkermode/users', (req, res) -> res.render './stalkermode/users.jade', { rooms: rooms }
 
 app.get '/stalkermode/cook', (req, res) ->
 	remote.cook(req, res)
@@ -551,7 +606,7 @@ app.get '/stalkermode/logout', (req, res) ->
 
 app.get '/stalkermode/user/:room/:user', (req, res) ->
 	u = rooms?[req.params.room]?.users?[req.params.user]
-	res.render 'user.jade', { room: req.params.room, id: req.params.user, user: u, text: util.inspect(u)}
+	res.render './stalkermode/user.jade', { room: req.params.room, id: req.params.user, user: u, text: util.inspect(u)}
 
 app.post '/stalkermode/emit/:room/:user', (req, res) ->
 	u = rooms?[req.params.room]?.users?[req.params.user]
@@ -569,7 +624,7 @@ app.post '/stalkermode/disco/:room/:user', (req, res) ->
 
 app.get '/stalkermode', (req, res) ->
 	util = require('util')
-	res.render 'admin.jade', {
+	res.render './stalkermode/admin.jade', {
 		env: app.settings.env,
 		mem: util.inspect(process.memoryUsage()),
 		start: uptime_begin,
@@ -595,30 +650,48 @@ app.post '/stalkermode/reports/change_question/:id', (req, res) ->
 
 app.get '/stalkermode/reports/:type', (req, res) ->
 	remote.Report.find {describe: req.params.type}, (err, docs) ->
-		res.render 'reports.jade', { reports: docs, categories: remote.get_categories('qb') }
+		res.render './stalkermode/reports.jade', { reports: docs, categories: remote.get_categories('qb') }
 
-app.get '/stalkermode/patriot', (req, res) -> res.render 'dash.jade'
+app.get '/stalkermode/patriot', (req, res) -> res.render './stalkermode/dash.jade'
 
 app.get '/stalkermode/:other', (req, res) -> res.redirect '/stalkermode'
 
-app.get '/401', (req, res) -> res.render 'auth.jade', {}
+app.get '/401', (req, res) -> res.render './stalkermode/auth.jade', {}
 
 app.post '/401', (req, res) -> remote.authenticate(req, res)
 
 app.get '/new', (req, res) -> res.redirect '/' + names.generatePage()
 
-app.get '/', (req, res) -> res.redirect '/lobby'
+app.get '/', (req, res) ->
+	res.redirect '/home'
+	
+app.get '/home', (req, res) -> 
+	res.render './info/home.jade', {user:req.user}
 
 app.get '/:channel', (req, res) ->
 	name = req.params.channel
 	if name in remote.get_types()
 		res.redirect "/#{name}/lobby"
 	else
-		res.render 'room.jade', { name }
+		res.render './game/room.jade', { name, user:req.user }
 
 app.get '/:type/:channel', (req, res) ->
 	name = req.params.channel
-	res.render 'room.jade', { name }
+	res.render './game/room.jade', { name, user:req.user}
+
+
+app.get '/user/profile', (req, res) ->
+	res.render './user/profile.jade', {user:req.user}
+
+app.get '/logout', (req, res) ->
+	req.session.destroy()
+	res.redirect('/')
+
+app.post '/auth/browserid', 
+	passport.authenticate('browserid', { failureRedirect: '/login' }),
+	(req, res) ->
+		res.redirect('/');
+
 
 
 remote.initialize_remote()
