@@ -1,9 +1,13 @@
 console.log 'hello from protobowl v3', __dirname, process.cwd()
 
 express = require 'express'
+passport = require 'passport'
+BrowserIDStrategy = require('passport-browserid').Strategy
 fs = require 'fs'
 http = require 'http'
 url = require 'url'
+https = require 'https'
+qs = require 'qs'
 
 parseCookie = require('express/node_modules/cookie').parse
 rooms = {}
@@ -17,10 +21,8 @@ uptime_begin = +new Date
 app = express()
 server = http.createServer(app)
 
-app.set 'views', "server" # directory where the jade files are
-app.set 'view options', layout: false
+app.set 'views', "server/views" # directory where the jade files are
 app.set 'trust proxy', true
-
 
 io = require('socket.io').listen(server)
 
@@ -103,11 +105,10 @@ if app.settings.env is 'production' and remote.deploy
 	journal_config = remote.deploy.journal
 	console.log 'set to deployment defaults'
 
-
 app.use express.compress()
-# app.use express.staticCache()
 app.use express.cookieParser()
 app.use express.bodyParser()
+app.use express.session({ secret: 'keyboard cat' })
 app.use express.static('static')
 app.use express.favicon('static/img/favicon.ico')
 
@@ -151,8 +152,6 @@ app.use (req, res, next) ->
 					res.redirect "/401"
 		else
 			next()
-
-	
 
 log = (action, obj) ->
 	req = http.request log_config, ->
@@ -527,7 +526,7 @@ app.post '/stalkermode/algore', (req, res) ->
 		res.end("counted all cats in #{time}ms: #{util.inspect(layers)}")
 
 app.get '/stalkermode/full', (req, res) ->
-	res.render 'admin.jade', {
+	res.render './stalkermode/admin.jade', {
 		env: app.settings.env,
 		mem: util.inspect(process.memoryUsage()),
 		start: uptime_begin,
@@ -537,7 +536,7 @@ app.get '/stalkermode/full', (req, res) ->
 		rooms: rooms
 	}
 
-app.get '/stalkermode/users', (req, res) -> res.render 'users.jade', { rooms: rooms }
+app.get '/stalkermode/users', (req, res) -> res.render './stalkermode/users.jade', { rooms: rooms }
 
 app.get '/stalkermode/cook', (req, res) ->
 	remote.cook(req, res)
@@ -550,7 +549,7 @@ app.get '/stalkermode/logout', (req, res) ->
 
 app.get '/stalkermode/user/:room/:user', (req, res) ->
 	u = rooms?[req.params.room]?.users?[req.params.user]
-	res.render 'user.jade', { room: req.params.room, id: req.params.user, user: u, text: util.inspect(u)}
+	res.render './stalkermode/user.jade', { room: req.params.room, id: req.params.user, user: u, text: util.inspect(u)}
 
 app.post '/stalkermode/emit/:room/:user', (req, res) ->
 	u = rooms?[req.params.room]?.users?[req.params.user]
@@ -568,7 +567,7 @@ app.post '/stalkermode/disco/:room/:user', (req, res) ->
 
 app.get '/stalkermode', (req, res) ->
 	util = require('util')
-	res.render 'admin.jade', {
+	res.render './stalkermode/admin.jade', {
 		env: app.settings.env,
 		mem: util.inspect(process.memoryUsage()),
 		start: uptime_begin,
@@ -594,13 +593,13 @@ app.post '/stalkermode/reports/change_question/:id', (req, res) ->
 
 app.get '/stalkermode/reports/:type', (req, res) ->
 	remote.Report.find {describe: req.params.type}, (err, docs) ->
-		res.render 'reports.jade', { reports: docs, categories: remote.get_categories('qb') }
+		res.render './stalkermode/reports.jade', { reports: docs, categories: remote.get_categories('qb') }
 
-app.get '/stalkermode/patriot', (req, res) -> res.render 'dash.jade'
+app.get '/stalkermode/patriot', (req, res) -> res.render './stalkermode/dash.jade'
 
 app.get '/stalkermode/:other', (req, res) -> res.redirect '/stalkermode'
 
-app.get '/401', (req, res) -> res.render 'auth.jade', {}
+app.get '/401', (req, res) -> res.render './stalkermode/auth.jade', {}
 
 app.post '/401', (req, res) -> remote.authenticate(req, res)
 
@@ -608,17 +607,63 @@ app.get '/new', (req, res) -> res.redirect '/' + names.generatePage()
 
 app.get '/', (req, res) -> res.redirect '/lobby'
 
+app.get '/bob-bob-bob', (req, res) ->
+	res.render './info/bob-bob-bob.jade', {user:req.session.email}
+
+
+app.get '/ugadadoogada', (req, res) ->
+	res.render './info/lobby.jade', {user:req.session.email}
+
+app.post '/auth/login', (req, res) ->
+	onVerifyResp = (bidRes) -> 
+		data = "";
+		bidRes.setEncoding('utf8');
+		bidRes.on 'data', (chunk) -> 
+			data += chunk
+
+		bidRes.on 'end', () -> 
+			verified = JSON.parse(data)
+			res.contentType('application/json')
+			if verified.status == 'okay'
+				console.info('browserid auth successful, setting req.session.email')
+				req.session.email = verified.email
+				res.redirect('/ugadadoogada')
+			else
+				console.error(verified.reason)
+				res.writeHead(403)
+			
+			res.write(data)
+
+	assertion = req.body.assertion
+
+	body = qs.stringify({
+		assertion: assertion,
+		audience: "localhost:5555"
+	})
+
+	console.info('verifying with browserid')
+	request = https.request({
+		host: 'verifier.login.persona.org',
+		path: '/verify',
+		method: 'POST',
+		headers: {
+			'content-type': 'application/x-www-form-urlencoded',
+			'content-length': body.length
+		}
+	}, onVerifyResp)
+	request.write(body)
+	request.end()
+
 app.get '/:channel', (req, res) ->
 	name = req.params.channel
 	if name in remote.get_types()
 		res.redirect "/#{name}/lobby"
 	else
-		res.render 'room.jade', { name }
+		res.render './game/room.jade', { name, user:req.session.email }
 
 app.get '/:type/:channel', (req, res) ->
 	name = req.params.channel
-	res.render 'room.jade', { name }
-
+	res.render './game/room.jade', { name, user:req.session.email }
 
 remote.initialize_remote()
 port = process.env.PORT || 5555
