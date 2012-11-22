@@ -1,4 +1,8 @@
+<<<<<<< HEAD
+protobowl_build = 'Thu Nov 22 2012 15:12:26 GMT-0500 (EST)';
+=======
 protobowl_build = 'Thu Nov 22 2012 16:07:21 GMT-0500 (EST)';
+>>>>>>> 39d3a120efef78e7ecc1652cc4b9beb7527c7fa8
 /* Modernizr 2.6.1 (Custom Build) | MIT & BSD
  * Build: http://modernizr.com/download/#-touch-teststyles-prefixes
  */
