@@ -138,6 +138,17 @@ get_user_data = (query, callback) ->
 		callback(logged_in_user)
 
 
+authenticate_data = (email, callback) ->
+	query = User.findOne {"email":email}
+
+	if !query
+		newUser = new User({'email':email, 'username':'randomusername'})
+		newUser.save
+	else
+		get_user_data query, (data) ->
+			callback(data)
+
+
 # Passport Serialize and Deserialize Functions
 passport.serializeUser (user, done) ->
 	done null, user.email
@@ -148,17 +159,9 @@ passport.deserializeUser (email, done) ->
 # Passport-BrowserID Strategy
 passport.use 'browserid', new BrowserID {audience: 'localhost:5555'},
 	(email, done) ->
-		query = User.findOne {"email":email}
-
-		if !query
-			newUser = new User({'email':verified.email, 'username':'randomusername'})
-			newUser.save (err) ->
-				if err
-					return handleError(err)
-		else
-			get_user_data query, (data) ->
-				done(err, data)
-
+		authenticate_data email, (theData) ->
+			console.log(theData)
+			done(theData)
 
 app.use express.compress()
 app.use express.cookieParser()
@@ -681,6 +684,16 @@ app.get '/', (req, res) ->
 app.get '/home', (req, res) -> 
 	res.render './info/home.jade', {user:req.user}
 
+app.get '/user/profile', (req, res) ->
+	res.render './user/profile.jade', {user:req.user}
+
+app.get '/logout', (req, res) ->
+	req.session.destroy()
+	res.redirect('/')
+
+app.post '/auth/browserid', passport.authenticate('browserid', { failureRedirect: '/login' }), (req, res) ->
+	res.redirect('/');
+
 app.get '/:channel', (req, res) ->
 	name = req.params.channel
 	if name in remote.get_types()
@@ -691,20 +704,6 @@ app.get '/:channel', (req, res) ->
 app.get '/:type/:channel', (req, res) ->
 	name = req.params.channel
 	res.render './game/room.jade', { name, user:req.user}
-
-
-app.get '/user/profile', (req, res) ->
-	res.render './user/profile.jade', {user:req.user}
-
-app.get '/logout', (req, res) ->
-	req.session.destroy()
-	res.redirect('/')
-
-app.post '/auth/browserid', 
-	passport.authenticate('browserid', { failureRedirect: '/login' }),
-	(req, res) ->
-		res.redirect('/');
-
 
 
 remote.initialize_remote()
