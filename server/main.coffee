@@ -105,6 +105,27 @@ if app.settings.env is 'production' and remote.deploy
 	journal_config = remote.deploy.journal
 	console.log 'set to deployment defaults'
 
+mongoose = require('mongoose')
+db = mongoose.createConnection 'localhost', 'protobowluser_db'
+
+db.on 'error', (err) ->
+	console.log 'Database Error', err
+
+db.on 'open', (err) ->
+	console.log 'opened database', err
+
+user_schema = new mongoose.Schema {
+	email: String,
+	username: String,
+	ninja: Boolean,
+	events: Array
+}
+
+User = db.model 'User', user_schema
+users = User.collection
+users.ensureIndex { id: 1, email: 1, username: 1, ninja:1, events: 1 }
+
+
 app.use express.compress()
 app.use express.cookieParser()
 app.use express.bodyParser()
@@ -605,15 +626,15 @@ app.post '/401', (req, res) -> remote.authenticate(req, res)
 
 app.get '/new', (req, res) -> res.redirect '/' + names.generatePage()
 
-app.get '/', (req, res) -> res.redirect '/lobby'
+app.get '/', (req, res) ->
+	res.redirect '/home'
 
-app.get '/bob-bob-bob', (req, res) ->
-	res.render './info/bob-bob-bob.jade', {user:req.session.email}
+app.get '/home', (req, res) -> 
+	res.render './info/home.jade', {user:req.session.email}
 
+app.get '/profile/:id', (req, res) ->
 
-app.get '/ugadadoogada', (req, res) ->
-	res.render './info/lobby.jade', {user:req.session.email}
-
+	
 app.post '/auth/login', (req, res) ->
 	onVerifyResp = (bidRes) -> 
 		data = "";
@@ -626,8 +647,30 @@ app.post '/auth/login', (req, res) ->
 			res.contentType('application/json')
 			if verified.status == 'okay'
 				console.info('browserid auth successful, setting req.session.email')
-				req.session.email = verified.email
-				res.redirect('/ugadadoogada')
+
+				query = User.findOne {"email":verified.email}
+
+				if query
+					console.log("querin")
+					query.exec (err, user) ->
+						if err
+							return handleError(err)
+
+						req.session.email = user.email
+						req.session.username = user.username
+						req.session.ninja = user.ninja
+
+						console.log("Email: " + user.email + "Username: " + user.username + "Is a ninja: " + user.ninja)
+				else
+					newUser = new User({'email':verified.email})
+					newUser.save (err) ->
+						if err
+							return handleError(err)
+
+
+				
+
+				res.redirect('/home')
 			else
 				console.error(verified.reason)
 				res.writeHead(403)
