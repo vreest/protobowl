@@ -20,7 +20,7 @@ html(lang="en", manifest="/offline.appcache")
 
 					if user
 						a.btn#signout Logout
-						a.btn(href='/profile') #{user}
+						a.btn(href='/profile') #{user.email}
 
 						script
 							var loggedInUser = user

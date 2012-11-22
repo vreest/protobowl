@@ -11,6 +11,7 @@ qs = require 'qs'
 
 parseCookie = require('express/node_modules/cookie').parse
 rooms = {}
+logged_in_user = {}
 {QuizRoom} = require '../shared/room'
 {QuizPlayer} = require '../shared/player'
 {checkAnswer} = require '../shared/checker'
@@ -629,12 +630,42 @@ app.get '/new', (req, res) -> res.redirect '/' + names.generatePage()
 app.get '/', (req, res) ->
 	res.redirect '/home'
 
+app.get '/:channel', (req, res) ->
+	name = req.params.channel
+	if name in remote.get_types()
+		res.redirect "/#{name}/lobby"
+	else
+		res.render './game/room.jade', { name, user:req.session.email }
+
+app.get '/:type/:channel', (req, res) ->
+	name = req.params.channel
+	res.render './game/room.jade', { name, user:req.session.email }
+
+
 app.get '/home', (req, res) -> 
-	res.render './info/home.jade', {user:req.session.email}
+	query = User.findOne {"email":verified.email}
+	get_user_data query, (userData) ->
+		req.session.userData = userData
 
-app.get '/profile/:id', (req, res) ->
+		res.render './info/home.jade', {user:req.session.userData}
 
-	
+app.get '/user/profile', (req, res) ->
+	query = User.findOne {"email":verified.email}
+	get_user_data query, (userData) ->
+		req.session.userData = userData
+
+		res.render './user/profile.jade', {user:req.session.userData}
+
+
+get_user_data = (query, callback) ->
+	console.log("querin")
+	query.exec (err, user) ->
+		if err
+			return handleError(err)
+
+		logged_in_user = {"email":user.email, "username":user.username, "ninja":user.ninja}
+		callback(logged_in_user)
+
 app.post '/auth/login', (req, res) ->
 	onVerifyResp = (bidRes) -> 
 		data = "";
@@ -649,26 +680,11 @@ app.post '/auth/login', (req, res) ->
 				console.info('browserid auth successful, setting req.session.email')
 
 				query = User.findOne {"email":verified.email}
-
-				if query
-					console.log("querin")
-					query.exec (err, user) ->
-						if err
-							return handleError(err)
-
-						req.session.email = user.email
-						req.session.username = user.username
-						req.session.ninja = user.ninja
-
-						console.log("Email: " + user.email + "Username: " + user.username + "Is a ninja: " + user.ninja)
-				else
+				if !query
 					newUser = new User({'email':verified.email})
 					newUser.save (err) ->
 						if err
 							return handleError(err)
-
-
-				
 
 				res.redirect('/home')
 			else
@@ -676,6 +692,7 @@ app.post '/auth/login', (req, res) ->
 				res.writeHead(403)
 			
 			res.write(data)
+			res.end()
 
 	assertion = req.body.assertion
 
@@ -697,16 +714,10 @@ app.post '/auth/login', (req, res) ->
 	request.write(body)
 	request.end()
 
-app.get '/:channel', (req, res) ->
-	name = req.params.channel
-	if name in remote.get_types()
-		res.redirect "/#{name}/lobby"
-	else
-		res.render './game/room.jade', { name, user:req.session.email }
+app.get '/logout', (req, res) ->
+	req.session.destroy()
+	res.redirect('/')
 
-app.get '/:type/:channel', (req, res) ->
-	name = req.params.channel
-	res.render './game/room.jade', { name, user:req.session.email }
 
 remote.initialize_remote()
 port = process.env.PORT || 5555
