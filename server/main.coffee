@@ -66,12 +66,10 @@ if app.settings.env is 'development'
 			snockets.getConcatenation 'client/offline.coffee', (err, js) ->
 				fs.writeFile 'static/offline.js', err || js, 'utf8', ->
 					next()
-		# else if req.url is '/protobowl.css'
-		# 	parser = new(less.Parser)({
-		# 		paths: ['static/less'],
-		# 		filename: 'protobowl.less'
-		# 	})
-		# 	parser.parse
+		else if req.url is '/auth.js'
+			snockets.getConcatenation 'client/auth.coffee', (err, js) ->
+					fs.writeFile 'static/auth.js', err || js, 'utf8', ->
+						next()
 		else
 			next()
 
