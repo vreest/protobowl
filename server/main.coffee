@@ -143,10 +143,10 @@ execute_query = (query, callback) ->
 
 # Passport Serialize and Deserialize Functions
 passport.serializeUser (user, done) ->
-	done null, user.email
+	done null, user
 
-passport.deserializeUser (email, done) ->
-	done null, {email: email}
+passport.deserializeUser (user, done) ->
+	done null, user
 
 # Passport-BrowserID Strategy
 passport.use 'browserid', new BrowserID {audience: 'localhost:5555'},
