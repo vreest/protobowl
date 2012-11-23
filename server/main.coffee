@@ -128,26 +128,18 @@ users = User.collection
 users.ensureIndex { id: 1, email: 1, username: 1, ninja:1, events: 1 }
 
 
-get_user_data = (query, callback) ->
-	console.log("querin")
-	query.exec (err, user) ->
-		if err
-			return handleError(err)
-
-		logged_in_user = {"email":user.email, "username":user.username, "ninja":user.ninja}
-		callback(logged_in_user)
-
-
 authenticate_data = (email, callback) ->
 	query = User.findOne {"email":email}
 
-	if !query
-		newUser = new User({'email':email, 'username':'randomusername'})
-		newUser.save
-	else
-		get_user_data query, (data) ->
-			callback(data)
+	execute_query query, (user) ->
+		if user
+			callback(user)
+		else
+			callback(null)
 
+execute_query = (query, callback) ->
+	query.exec (err, user) ->
+		callback(user)
 
 # Passport Serialize and Deserialize Functions
 passport.serializeUser (user, done) ->
@@ -159,9 +151,18 @@ passport.deserializeUser (email, done) ->
 # Passport-BrowserID Strategy
 passport.use 'browserid', new BrowserID {audience: 'localhost:5555'},
 	(email, done) ->
+		query = User.findOne {"email":email}
+
 		authenticate_data email, (theData) ->
-			console.log(theData)
-			done(theData)
+			if theData
+				done null, theData
+			else
+				newUser = new User({'email':email, 'username':'randomusername', 'ninja':0})
+				newUser.save (err) ->
+				if err 
+					return handleError(err)
+
+				done null, newUser
 
 app.use express.compress()
 app.use express.cookieParser()
@@ -169,8 +170,8 @@ app.use express.bodyParser()
 app.use express.session({ secret: 'keyboard cat' })
 app.use express.static('static')
 app.use express.favicon('static/img/favicon.ico')
-app.use(passport.initialize());
-app.use(passport.session());
+app.use passport.initialize()
+app.use passport.session()
 
 crypto = require 'crypto'
 
@@ -678,10 +679,8 @@ app.post '/401', (req, res) -> remote.authenticate(req, res)
 
 app.get '/new', (req, res) -> res.redirect '/' + names.generatePage()
 
-app.get '/', (req, res) ->
-	res.redirect '/home'
-	
-app.get '/home', (req, res) -> 
+app.get '/', (req, res) -> 
+	console.log(req.user)
 	res.render './info/home.jade', {user:req.user}
 
 app.get '/user/profile', (req, res) ->

@@ -18,18 +18,6 @@ html(lang="en")
 						em.motto.hidden-phone(style="font-size: small")
 							| doing one thing and doing it acceptably well
 
-					if user
-						a.btn#signout Logout
-						a.btn(href='/profile') #{user.email}
-
-						script
-							var loggedInUser = '#{user.email}'
-					else
-					
-
-						script
-							var loggedInUser = null
-
 					div.pull-right
 						a.btn.btn-primary.new-room(href="/new") New Room
 		body
