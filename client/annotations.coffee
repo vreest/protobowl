@@ -157,7 +157,7 @@ guessAnnotation = ({session, text, user, done, correct, interrupt, early, prompt
 		line.append ' '
 		line.append ruling
 		# addAnnotation line
-		annotation_spot = $('#history .bundle[name="question-' + sha1(room.generated_time + room.question) + '"]:first .annotations')
+		annotation_spot = $('#history .bundle:first .annotations')
 		if annotation_spot.length is 0
 			annotation_spot = $('#history .annotations:first')
 		line.css('display', 'none').prependTo annotation_spot
@@ -341,6 +341,10 @@ logAnnotation = (text) ->
 	line = $('<p>').addClass 'log'
 	line.append text
 	addAnnotation line
+
+
+notifyTrolls = ->
+	addAnnotation($('<iframe width="420" height="315" src="http://www.youtube.com/embed/6bMLrA_0O5I?rel=0" frameborder="0" allowfullscreen></iframe>'))
 
 # Ummmm ahh such as like, like the one where I'm like mmm and it says, 
 # "I saw watchoo did there!" 

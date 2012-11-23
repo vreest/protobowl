@@ -1,4 +1,4 @@
-protobowl_build = 'Fri Nov 23 2012 16:55:08 GMT-0500 (EST)';
+protobowl_build = 'Fri Nov 23 2012 01:39:42 GMT-0500 (EST)';
 /* Modernizr 2.6.1 (Custom Build) | MIT & BSD
  * Build: http://modernizr.com/download/#-touch-teststyles-prefixes
  */
@@ -1169,155 +1169,180 @@ protobowl_build = 'Fri Nov 23 2012 16:55:08 GMT-0500 (EST)';
 
 }(window.jQuery);
 
-
-/* ============================================================
- * bootstrap-dropdown.js v2.2.1
- * http://twitter.github.com/bootstrap/javascript.html#dropdowns
- * ============================================================
- * Copyright 2012 Twitter, Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- * ============================================================ */
-
-
-!function ($) {
-
-  "use strict"; // jshint ;_;
-
-
- /* DROPDOWN CLASS DEFINITION
-  * ========================= */
-
-  var toggle = '[data-toggle=dropdown]'
-    , Dropdown = function (element) {
-        var $el = $(element).on('click.dropdown.data-api', this.toggle)
-        $('html').on('click.dropdown.data-api', function () {
-          $el.parent().removeClass('open')
-        })
-      }
-
-  Dropdown.prototype = {
-
-    constructor: Dropdown
-
-  , toggle: function (e) {
-      var $this = $(this)
-        , $parent
-        , isActive
-
-      if ($this.is('.disabled, :disabled')) return
-
-      $parent = getParent($this)
-
-      isActive = $parent.hasClass('open')
-
-      clearMenus()
-
-      if (!isActive) {
-        $parent.toggleClass('open')
-        $this.focus()
-      }
-
-      return false
-    }
-
-  , keydown: function (e) {
-      var $this
-        , $items
-        , $active
-        , $parent
-        , isActive
-        , index
-
-      if (!/(38|40|27)/.test(e.keyCode)) return
-
-      $this = $(this)
-
-      e.preventDefault()
-      e.stopPropagation()
-
-      if ($this.is('.disabled, :disabled')) return
-
-      $parent = getParent($this)
-
-      isActive = $parent.hasClass('open')
-
-      if (!isActive || (isActive && e.keyCode == 27)) return $this.click()
-
-      $items = $('[role=menu] li:not(.divider) a', $parent)
-
-      if (!$items.length) return
-
-      index = $items.index($items.filter(':focus'))
-
-      if (e.keyCode == 38 && index > 0) index--                                        // up
-      if (e.keyCode == 40 && index < $items.length - 1) index++                        // down
-      if (!~index) index = 0
-
-      $items
-        .eq(index)
-        .focus()
-    }
-
-  }
-
-  function clearMenus() {
-    $(toggle).each(function () {
-      getParent($(this)).removeClass('open')
-    })
-  }
-
-  function getParent($this) {
-    var selector = $this.attr('data-target')
-      , $parent
-
-    if (!selector) {
-      selector = $this.attr('href')
-      selector = selector && /#/.test(selector) && selector.replace(/.*(?=#[^\s]*$)/, '') //strip for ie7
-    }
-
-    $parent = $(selector)
-    $parent.length || ($parent = $this.parent())
-
-    return $parent
-  }
-
-
-  /* DROPDOWN PLUGIN DEFINITION
-   * ========================== */
-
-  $.fn.dropdown = function (option) {
-    return this.each(function () {
-      var $this = $(this)
-        , data = $this.data('dropdown')
-      if (!data) $this.data('dropdown', (data = new Dropdown(this)))
-      if (typeof option == 'string') data[option].call($this)
-    })
-  }
-
-  $.fn.dropdown.Constructor = Dropdown
-
-
-  /* APPLY TO STANDARD DROPDOWN ELEMENTS
-   * =================================== */
-
-  $(document)
-    .on('click.dropdown.data-api touchstart.dropdown.data-api', clearMenus)
-    .on('click.dropdown touchstart.dropdown.data-api', '.dropdown form', function (e) { e.stopPropagation() })
-    .on('click.dropdown.data-api touchstart.dropdown.data-api'  , toggle, Dropdown.prototype.toggle)
-    .on('keydown.dropdown.data-api touchstart.dropdown.data-api', toggle + ', [role=menu]' , Dropdown.prototype.keydown)
-
-}(window.jQuery);
+/**
+*
+*  Secure Hash Algorithm (SHA1)
+*  http://www.webtoolkit.info/
+*
+**/
+ 
+function sha1(msg) {
+ 
+	function rotate_left(n,s) {
+		var t4 = ( n<<s ) | (n>>>(32-s));
+		return t4;
+	};
+ 
+	function lsb_hex(val) {
+		var str="";
+		var i;
+		var vh;
+		var vl;
+ 
+		for( i=0; i<=6; i+=2 ) {
+			vh = (val>>>(i*4+4))&0x0f;
+			vl = (val>>>(i*4))&0x0f;
+			str += vh.toString(16) + vl.toString(16);
+		}
+		return str;
+	};
+ 
+	function cvt_hex(val) {
+		var str="";
+		var i;
+		var v;
+ 
+		for( i=7; i>=0; i-- ) {
+			v = (val>>>(i*4))&0x0f;
+			str += v.toString(16);
+		}
+		return str;
+	};
+ 
+ 
+	function Utf8Encode(string) {
+		string = string.replace(/\r\n/g,"\n");
+		var utftext = "";
+ 
+		for (var n = 0; n < string.length; n++) {
+ 
+			var c = string.charCodeAt(n);
+ 
+			if (c < 128) {
+				utftext += String.fromCharCode(c);
+			}
+			else if((c > 127) && (c < 2048)) {
+				utftext += String.fromCharCode((c >> 6) | 192);
+				utftext += String.fromCharCode((c & 63) | 128);
+			}
+			else {
+				utftext += String.fromCharCode((c >> 12) | 224);
+				utftext += String.fromCharCode(((c >> 6) & 63) | 128);
+				utftext += String.fromCharCode((c & 63) | 128);
+			}
+ 
+		}
+ 
+		return utftext;
+	};
+ 
+	var blockstart;
+	var i, j;
+	var W = new Array(80);
+	var H0 = 0x67452301;
+	var H1 = 0xEFCDAB89;
+	var H2 = 0x98BADCFE;
+	var H3 = 0x10325476;
+	var H4 = 0xC3D2E1F0;
+	var A, B, C, D, E;
+	var temp;
+ 
+	msg = Utf8Encode(msg);
+ 
+	var msg_len = msg.length;
+ 
+	var word_array = new Array();
+	for( i=0; i<msg_len-3; i+=4 ) {
+		j = msg.charCodeAt(i)<<24 | msg.charCodeAt(i+1)<<16 |
+		msg.charCodeAt(i+2)<<8 | msg.charCodeAt(i+3);
+		word_array.push( j );
+	}
+ 
+	switch( msg_len % 4 ) {
+		case 0:
+			i = 0x080000000;
+		break;
+		case 1:
+			i = msg.charCodeAt(msg_len-1)<<24 | 0x0800000;
+		break;
+ 
+		case 2:
+			i = msg.charCodeAt(msg_len-2)<<24 | msg.charCodeAt(msg_len-1)<<16 | 0x08000;
+		break;
+ 
+		case 3:
+			i = msg.charCodeAt(msg_len-3)<<24 | msg.charCodeAt(msg_len-2)<<16 | msg.charCodeAt(msg_len-1)<<8	| 0x80;
+		break;
+	}
+ 
+	word_array.push( i );
+ 
+	while( (word_array.length % 16) != 14 ) word_array.push( 0 );
+ 
+	word_array.push( msg_len>>>29 );
+	word_array.push( (msg_len<<3)&0x0ffffffff );
+ 
+ 
+	for ( blockstart=0; blockstart<word_array.length; blockstart+=16 ) {
+ 
+		for( i=0; i<16; i++ ) W[i] = word_array[blockstart+i];
+		for( i=16; i<=79; i++ ) W[i] = rotate_left(W[i-3] ^ W[i-8] ^ W[i-14] ^ W[i-16], 1);
+ 
+		A = H0;
+		B = H1;
+		C = H2;
+		D = H3;
+		E = H4;
+ 
+		for( i= 0; i<=19; i++ ) {
+			temp = (rotate_left(A,5) + ((B&C) | (~B&D)) + E + W[i] + 0x5A827999) & 0x0ffffffff;
+			E = D;
+			D = C;
+			C = rotate_left(B,30);
+			B = A;
+			A = temp;
+		}
+ 
+		for( i=20; i<=39; i++ ) {
+			temp = (rotate_left(A,5) + (B ^ C ^ D) + E + W[i] + 0x6ED9EBA1) & 0x0ffffffff;
+			E = D;
+			D = C;
+			C = rotate_left(B,30);
+			B = A;
+			A = temp;
+		}
+ 
+		for( i=40; i<=59; i++ ) {
+			temp = (rotate_left(A,5) + ((B&C) | (B&D) | (C&D)) + E + W[i] + 0x8F1BBCDC) & 0x0ffffffff;
+			E = D;
+			D = C;
+			C = rotate_left(B,30);
+			B = A;
+			A = temp;
+		}
+ 
+		for( i=60; i<=79; i++ ) {
+			temp = (rotate_left(A,5) + (B ^ C ^ D) + E + W[i] + 0xCA62C1D6) & 0x0ffffffff;
+			E = D;
+			D = C;
+			C = rotate_left(B,30);
+			B = A;
+			A = temp;
+		}
+ 
+		H0 = (H0 + A) & 0x0ffffffff;
+		H1 = (H1 + B) & 0x0ffffffff;
+		H2 = (H2 + C) & 0x0ffffffff;
+		H3 = (H3 + D) & 0x0ffffffff;
+		H4 = (H4 + E) & 0x0ffffffff;
+ 
+	}
+ 
+	var temp = cvt_hex(H0) + cvt_hex(H1) + cvt_hex(H2) + cvt_hex(H3) + cvt_hex(H4);
+ 
+	return temp.toLowerCase();
+ 
+}
 var clone_shallow;
 
 window.requestAnimationFrame || (window.requestAnimationFrame = window.webkitRequestAnimationFrame || window.mozRequestAnimationFrame || window.oRequestAnimationFrame || window.msRequestAnimationFrame || function(callback, element) {
@@ -1443,7 +1468,7 @@ setTimeout(function() {
   return $(window).resize();
 }, 6022);
 
-var addAnnotation, addImportant, banButton, boxxyAnnotation, chatAnnotation, createAlert, guessAnnotation, logAnnotation, notifyTrolls, userSpan, verbAnnotation,
+var addAnnotation, addImportant, banButton, boxxyAnnotation, chatAnnotation, createAlert, guessAnnotation, logAnnotation, userSpan, verbAnnotation,
   __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
 
 createAlert = function(bundle, title, message) {
@@ -1593,7 +1618,7 @@ guessAnnotation = function(_arg) {
     ruling = $('<a>').addClass('label ruling').hide().attr('href', '#').attr('title', 'Click to Report').data('placement', 'right');
     line.append(' ');
     line.append(ruling);
-    annotation_spot = $('#history .bundle:first .annotations');
+    annotation_spot = $('#history .bundle[name="question-' + sha1(room.generated_time + room.question) + '"]:first .annotations');
     if (annotation_spot.length === 0) {
       annotation_spot = $('#history .annotations:first');
     }
@@ -1777,10 +1802,6 @@ logAnnotation = function(text) {
   line = $('<p>').addClass('log');
   line.append(text);
   return addAnnotation(line);
-};
-
-notifyTrolls = function() {
-  return addAnnotation($('<iframe width="420" height="315" src="http://www.youtube.com/embed/6bMLrA_0O5I?rel=0" frameborder="0" allowfullscreen></iframe>'));
 };
 
 boxxyAnnotation = function(_arg) {
@@ -2285,34 +2306,13 @@ $('.difficulties').change(function() {
   return me.set_difficulty($('.difficulties').val());
 });
 
-$("#make_button").click(function() {
-  if ($("#team_input").val() === '__create') {
-    $("#team_input").val('Boxxy');
-    notifyTrolls();
-  }
-  me.set_team($("#team_input").val());
-  $("#team_modal").data('set_team', true).modal("hide");
-  return $("#team_input").blur();
-});
-
-$("#team_modal").on('hidden', function() {
-  if (!$("#team_modal").data('set_team')) {
-    return me.set_team(me.team);
-  }
-});
-
-$('#team_modal').on('shown', function() {
-  return $("#team_input").focus();
-});
-
-$("#team_modal form").submit(function(e) {
-  e.preventDefault();
-  return $("#make_button").click();
-});
-
 $('.teams').change(function() {
-  if ($('.teams').val() === '__create') {
-    return $("#team_modal").modal("show").data('set_team', false).find('input').val(me.team);
+  if ($('.teams').val() === 'create') {
+    $("#team_modal").modal("show");
+    return $("#make_button").click(function() {
+      me.set_team($("#team_input").val());
+      return $("#team_modal").modal("hide");
+    });
   } else {
     return me.set_team($('.teams').val());
   }
@@ -2602,7 +2602,7 @@ renderUpdate = function() {
 last_rendering = 0;
 
 renderPartial = function() {
-  var info, start, well;
+  var start, well;
   if ((!room.time_freeze || room.attempt) && room.time() < room.end_time) {
     requestAnimationFrame(renderPartial);
     if (new Date - last_rendering < 1000 / 20) {
@@ -2625,8 +2625,7 @@ renderPartial = function() {
         return $(this).remove();
       });
     }
-    info = $('#history .bundle:first').data('info');
-    if ((info != null ? info.generated_time : void 0) !== (typeof room !== "undefined" && room !== null ? room.generated_time : void 0) || (typeof room !== "undefined" && room !== null ? room.question : void 0) !== (info != null ? info.question : void 0)) {
+    if ($('#history .bundle[name="question-' + sha1(room.generated_time + room.question) + '"]').length === 0) {
       changeQuestion();
     }
   }
@@ -2769,7 +2768,7 @@ get_score = function(user) {
 };
 
 renderUsers = function() {
-  var active_count, attrs, badge, entities, get_weight, id, idle_count, ids, list, lock_electorate, lock_votes, member, members, name, name_map, needed, negs, num, ranking, row, sorted, team, team_count, team_hash, teams, u, user, user_count, user_index, _i, _j, _k, _l, _len, _len1, _len2, _ref, _ref1, _ref2, _ref3, _ref4, _ref5, _ref6, _ref7;
+  var active_count, attrs, badge, entities, get_weight, id, idle_count, ids, list, lock_electorate, lock_votes, member, members, name, name_map, needed, num, ranking, row, sorted, team, team_count, team_hash, teams, user, user_count, user_index, _i, _j, _k, _l, _len, _len1, _len2, _ref, _ref1, _ref2, _ref3, _ref4, _ref5, _ref6, _ref7;
   if (!room.users) {
     return;
   }
@@ -2859,7 +2858,7 @@ renderUsers = function() {
       team = team.slice(2);
       $('.teams')[0].options.add(new Option("" + team + " (" + members.length + ")", team));
     }
-    $('.teams')[0].options.add(new Option('Create Team', '__create'));
+    $('.teams')[0].options.add(new Option('Create Team', 'create'));
     if (me.id in room.users) {
       $('.teams').val(room.users[me.id].team);
     }
@@ -2898,16 +2897,6 @@ renderUsers = function() {
           }
           return _results1;
         })();
-        attrs.interrupts = Sum((function() {
-          var _j, _len, _ref4, _results1;
-          _ref4 = attrs.members;
-          _results1 = [];
-          for (_j = 0, _len = _ref4.length; _j < _len; _j++) {
-            u = _ref4[_j];
-            _results1.push(u.interrupts);
-          }
-          return _results1;
-        })());
         attrs.name = team;
         _results.push(attrs);
       }
@@ -2991,8 +2980,7 @@ renderUsers = function() {
         $('<td>').css("border", 0).append(badge).appendTo(row);
         name = $('<td>').append(userSpan(user.id));
         name.appendTo(row);
-        negs = user.interrupts;
-        $('<td>').text(negs).appendTo(row);
+        $('<td>').text(user.interrupts).appendTo(row);
       }
     }
   }
@@ -3147,21 +3135,6 @@ createTeamStatSheet = function(team, full) {
   return table;
 };
 
-createBundle = function() {
-  return create_bundle({
-    year: room.info.year,
-    difficulty: room.info.difficulty,
-    category: room.info.category,
-    tournament: room.info.tournament,
-    round: room.info.round,
-    num: room.info.num,
-    qid: room.qid,
-    question: room.question,
-    generated_time: room.generated_time,
-    answer: room.answer
-  });
-};
-
 changeQuestion = function() {
   var bundle, cutoff, nested, old;
   if (!(room.question && room.generated_time)) {
@@ -3293,9 +3266,8 @@ create_report_form = function(info) {
 };
 
 create_bundle = function(info) {
-  var breadcrumb, bundle, field, readout, star, well;
-  bundle = $('<div>').addClass('bundle').addClass("qid-" + info.qid);
-  bundle.data('info', info);
+  var breadcrumb, bundle, field, readout, star, well, _ref;
+  bundle = $('<div>').addClass('bundle').addClass("qid-" + info.qid).attr('name', 'question-' + sha1(room.generated_time + info.question)).addClass('room-' + ((_ref = room.name) != null ? _ref.replace(/[^a-z0-9]/g, '') : void 0));
   breadcrumb = $('<ul>');
   star = $('<a>', {
     href: "#",
@@ -3351,6 +3323,20 @@ create_bundle = function(info) {
   well = $('<div>').addClass('well').appendTo(readout);
   well.append($('<span>').addClass('unread').text(info.question));
   return bundle.append($('<ul>').addClass('breadcrumb').append(breadcrumb)).append(readout).append($('<div>').addClass('sticky')).append($('<div>').addClass('annotations'));
+};
+
+createBundle = function() {
+  return create_bundle({
+    year: room.info.year,
+    difficulty: room.info.difficulty,
+    category: room.info.category,
+    tournament: room.info.tournament,
+    round: room.info.round,
+    num: room.info.num,
+    qid: room.qid,
+    question: room.question,
+    answer: room.answer
+  });
 };
 
 reader_children = null;
@@ -4860,15 +4846,13 @@ listen('joined', function(data) {
   me.id = data.id;
   room.users[me.id] = me;
   me.name = data.name;
-  if (me.id[0] !== '_') {
-    if (localStorage.username) {
-      if (!data.existing) {
-        me.name = localStorage.username;
-        me.set_name(me.name);
-      }
-    } else {
-      localStorage.username = data.name;
+  if (localStorage.username) {
+    if (!data.existing) {
+      me.name = localStorage.username;
+      me.set_name(me.name);
     }
+  } else {
+    localStorage.username = data.name;
   }
   $('#slow').slideUp();
   $('.actionbar button').disable(false);

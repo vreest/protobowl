@@ -18,6 +18,9 @@ html(lang="en")
 						em.motto.hidden-phone(style="font-size: small")
 							| doing one thing and doing it acceptably well
 
+					if user
+						a.btn(href='/user/profile') #{user.username}
+
 					div.pull-right
 						a.btn.btn-primary.new-room(href="/new") New Room
 		body

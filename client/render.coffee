@@ -154,7 +154,8 @@ renderPartial = ->
 		if $('.start-page').length isnt 0
 			$('.start-page').slideUp 'normal', -> $(this).remove()
 
-		if $('#history .bundle[name="question-' + sha1(room.generated_time + room.question) + '"]').length is 0
+		info = $('#history .bundle:first').data('info')
+		if info?.generated_time != room?.generated_time or room?.question != info?.question
 			changeQuestion()
 	
 	updateTextPosition()
@@ -389,7 +390,7 @@ renderUsers = ->
 		for team, members of teams
 			team = team.slice(2)
 			$('.teams')[0].options.add new Option("#{team} (#{members.length})", team)
-		$('.teams')[0].options.add new Option('Create Team', 'create')
+		$('.teams')[0].options.add new Option('Create Team', '__create')
 		
 		if me.id of room.users
 			$('.teams').val(room.users[me.id].team)
@@ -407,16 +408,11 @@ renderUsers = ->
 		entities = for team, members of teams
 			team = team.slice(2)
 
-			# attrs = new QuizPlayer(room, 't-' + team.toLowerCase().replace(/[^a-z0-9]/g, ''))
 			attrs = {room: room} #new Team(room)
 			team_count++
-			# for member in members
-			# 	for attr, val of room.users[member]
-			# 		if typeof val is 'number'
-			# 			attrs[attr] = 0 unless attr of attrs
-			# 			attrs[attr] += val
 
 			attrs.members = (room.users[member] for member in members)
+			attrs.interrupts = Sum(u.interrupts for u in attrs.members)
 			
 			attrs.name = team
 			attrs
@@ -457,6 +453,7 @@ renderUsers = ->
 		
 		$('<td>').addClass('rank').append(badge).append(ranking).appendTo row
 		name = $('<td>').appendTo row
+
 		
 		$('<td>').text(user.interrupts).appendTo row
 		if !user.members #user.members.length is 1 and !users[user.members[0]].team # that's not a team! that's a person!
@@ -481,7 +478,8 @@ renderUsers = ->
 				$('<td>').css("border", 0).append(badge).appendTo row
 				name = $('<td>').append(userSpan(user.id))
 				name.appendTo row
-				$('<td>').text(user.interrupts).appendTo row
+				negs = user.interrupts
+				$('<td>').text(negs).appendTo row
 
 	#console.timeEnd('draw board')
 	# this if clause is ~5msecs
@@ -573,6 +571,22 @@ createTeamStatSheet = (team, full) ->
 	# row "ID", team.id.slice(0, 10) if full
 	# row "Last Seen", formatRelativeTime(team.last_action) if full
 	return table
+
+createBundle = ->
+	create_bundle {
+		year: room.info.year, 
+		difficulty: room.info.difficulty, 
+		category: room.info.category, 
+		tournament: room.info.tournament,
+		round: room.info.round,
+		num: room.info.num,
+		qid: room.qid,
+		question: room.question,
+		generated_time: room.generated_time,
+		answer: room.answer
+	}
+
+
 
 changeQuestion = ->
 	return unless room.question and room.generated_time
@@ -704,8 +718,8 @@ create_report_form = (info) ->
 create_bundle = (info) ->
 	bundle = $('<div>').addClass('bundle')
 		.addClass("qid-#{info.qid}")
-		.attr('name', 'question-' + sha1(room.generated_time + info.question))
-		.addClass('room-'+room.name?.replace(/[^a-z0-9]/g, ''))
+
+	bundle.data 'info', info
 
 	breadcrumb = $('<ul>')
 	star = $('<a>', {
@@ -770,19 +784,6 @@ create_bundle = (info) ->
 		.append($('<div>').addClass('sticky'))
 		.append($('<div>').addClass('annotations'))
 
-
-createBundle = ->
-	create_bundle {
-		year: room.info.year, 
-		difficulty: room.info.difficulty, 
-		category: room.info.category, 
-		tournament: room.info.tournament,
-		round: room.info.round,
-		num: room.info.num,
-		qid: room.qid,
-		question: room.question,
-		answer: room.answer
-	}
 
 
 reader_children = null
