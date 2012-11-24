@@ -1,17 +1,15 @@
 console.log 'hello from protobowl v3', __dirname, process.cwd()
 
 express = require 'express'
-passport = require 'passport'
-BrowserID = require('passport-browserid').Strategy
 fs = require 'fs'
 http = require 'http'
 url = require 'url'
-https = require 'https'
-qs = require 'qs'
+
+passport = require 'passport'
+BrowserID = require('passport-browserid').Strategy
 
 parseCookie = require('express/node_modules/cookie').parse
 rooms = {}
-logged_in_user = {}
 {QuizRoom} = require '../shared/room'
 {QuizPlayer} = require '../shared/player'
 {checkAnswer} = require '../shared/checker'
@@ -23,6 +21,7 @@ app = express()
 server = http.createServer(app)
 
 app.set 'views', "server/views" # directory where the jade files are
+# app.set 'view options', layout: false
 app.set 'trust proxy', true
 
 
@@ -46,12 +45,7 @@ log_config = { host: 'localhost', port: 18228 }
 
 if app.settings.env is 'development'
 	less = require 'less'
-
-	app.use require('less-middleware')({
-		src: "static/less",
-		dest: "static",
-		compress: true
-	})
+	
 	Snockets = require 'snockets'
 	CoffeeScript = require 'coffee-script'
 	Snockets.compilers.coffee = 
@@ -60,21 +54,6 @@ if app.settings.env is 'development'
 			CoffeeScript.compile source, {filename: sourcePath, bare: true}
 
 	snockets = new Snockets()
-	app.use (req, res, next) ->
-		if req.url is '/app.js'
-			snockets.getConcatenation 'client/app.coffee', (err, js) ->
-				fs.writeFile 'static/app.js', "protobowl_build = '#{new Date}';\n#{err || js}", 'utf8', ->
-					next()
-		else if req.url is '/offline.js'
-			snockets.getConcatenation 'client/offline.coffee', (err, js) ->
-				fs.writeFile 'static/offline.js', err || js, 'utf8', ->
-					next()
-		else if req.url is '/auth.js'
-			snockets.getConcatenation 'client/auth.coffee', (err, js) ->
-					fs.writeFile 'static/auth.js', err || js, 'utf8', ->
-						next()
-		else
-			next()
 
 	scheduledUpdate = null
 	path = require 'path'
@@ -108,12 +87,12 @@ if app.settings.env is 'development'
 
 
 		file_list = ['app', 'offline', 'auth']
-
+		
 		compileCoffee = ->
 			file = file_list.shift()
 			return saveFiles() if !file
 			console.log 'compiling coffee', file
-
+			
 			snockets.getConcatenation "client/#{file}.coffee", (err, js) ->
 				source_list.push {
 					code: "protobowl_#{file}_build = '#{compile_date}';\n#{js}", 
@@ -153,7 +132,7 @@ if app.settings.env is 'development'
 		compileLess()
 	watcher = (event, filename) ->
 		return if filename in ["offline.appcache", "protobowl.css", "app.js"]
-
+		
 		unless scheduledUpdate
 			console.log "changed file", filename
 			scheduledUpdate = setTimeout updateCache, 500
@@ -161,8 +140,7 @@ if app.settings.env is 'development'
 	fs.watch "shared", watcher
 	fs.watch "client", watcher
 	fs.watch "static/less", watcher
-	fs.watch "server/views/game/room.jade", watcher
-
+	fs.watch "server/views", watcher
 
 
 try 
@@ -208,10 +186,7 @@ authenticate_data = (email, callback) ->
 
 execute_query = (query, callback) ->
 	query.exec (err, user) ->
-		if err
-			callback(null)
-		else
-			callback(user)
+		callback(user)
 
 # Passport Serialize and Deserialize Functions
 passport.serializeUser (user, done) ->
@@ -229,9 +204,11 @@ passport.use 'browserid', new BrowserID {audience: 'localhost:5555'},
 			if theData
 				done null, theData
 			else
-				newUser = new User({'email':email, 'username':'randomusername', 'ninja':0})
-				newUser.save () ->
-					console.log("saved")
+				newUser = new User({'email':email, 'username':'randomusername', 'ninja':0, 'ids': []})
+				newUser.save (err) ->
+				if err 
+					return handleError(err)
+
 				done null, newUser
 
 
@@ -329,10 +306,6 @@ class SocketQuizRoom extends QuizRoom
 		if @attempt?.user
 			ruling = @check_answer @attempt.text, @answer, @question
 			log 'buzz', [@name, @attempt.user + '-' + @users[@attempt.user].name, @attempt.text, @answer, ruling]
-			#if user is logged in
-			#	buzz_event = {"question_text":@attempt.text, "answer":@answer, "ruling":ruling}
-				# update database so that the buzz event is added to the users event log
-
 		super(session)
 
 	deserialize: (data) ->
@@ -471,11 +444,7 @@ io.sockets.on 'connection', (sock) ->
 	# configger the things which are derived from said parsed stuff
 	room_name = config.pathname.replace(/^\/*/g, '').toLowerCase()
 	question_type = (if room_name.split('/').length is 2 then room_name.split('/')[0] else 'qb')
-	publicID = sha1(cookie.protocookie + room_name)
 
-	publicID = "__secret_ninja_#{Math.random().toFixed(4).slice(2)}" if is_ninja
-	publicID += "_god" if is_god
-	
 	# get the room
 	load_room room_name, (room, is_new) ->
 		if is_new
@@ -570,7 +539,6 @@ restore_journal = (callback) ->
 	journal_config.path = '/retrieve'
 	journal_config.method = 'GET'
 	req = http.request journal_config, (res) ->
-		console.log 'GOT JOURNAL RESPONSE'
 		res.setEncoding 'utf8'
 		packet = ''
 		res.on 'data', (chunk) ->
@@ -614,8 +582,8 @@ clearInactive = ->
 				if overcrowded_room and username is oldest_user
 					evict_user = true
 				if evict_user or
-				(user.last_action < new Date - 1000 * 60 * 30 and user.guesses is 0) or
-				(big_room and user.correct < 2 and user.last_action < new Date - 1000 * 60 * 10)
+				(user.last_action < new Date - 1000 * 60 * 15 and user.guesses is 0) or
+				(big_room and user.correct < 2 and user.last_action < new Date - 1000 * 60 * 5)
 					log 'reap_user', {
 						seen: user.seen, 
 						guesses: user.guesses, 
@@ -670,7 +638,7 @@ swapInactive = ->
 		continue if online.length > 0
 		events = (room.serverTime() - user.last_action for username, user of room.users)
 		shortest_lapse = Math.min.apply @, events
-		continue if shortest_lapse < 1000 * 60 * 10 # things are stale after 10 minutes? 10 secs for dev
+		continue if shortest_lapse < 1000 * 60 * 20 # things are stale after a few minutes
 		# ripe for swapping
 		remote.archiveRoom room, (name) ->
 			delete rooms[name]
@@ -791,30 +759,79 @@ app.post '/401', (req, res) -> remote.authenticate(req, res)
 
 app.get '/new', (req, res) -> res.redirect '/' + names.generatePage()
 
+
+ensureAuthenticated = (req, res, next) ->
+	return next() if req.isAuthenticated()
+	res.redirect '/signin'
+
+app.get '/signin', (req, res) -> 
+	return res.redirect '/' if req.user
+	res.render './info/signin.jade', {user:req.user}
+
+app.get '/user/profile', ensureAuthenticated, (req, res) -> 
+	res.render './user/profile.jade', {user:req.user}
+
+app.get '/user/stats', ensureAuthenticated,  (req, res) -> 
+	res.render './user/stats.jade', {user:req.user}
+
+
 app.get '/', (req, res) -> 
-	console.log(req.user)
 	res.render './info/home.jade', {user:req.user}
 
-app.get '/user/profile', (req, res) ->
-	res.render './user/profile.jade', {user:req.user}
 
 app.get '/logout', (req, res) ->
 	req.session.destroy()
-	res.redirect('/')
+	res.redirect(req.params.return || '/')
 
 app.post '/auth/browserid', passport.authenticate('browserid', { failureRedirect: '/login' }), (req, res) ->
 	res.redirect('/');
+
+app.post '/auth/link', (req, res, next) ->
+	passport.authenticate('browserid', (err, user, info) ->
+		return next(err) if err
+		res.end 'fail' if !user
+		req.login user, (err) ->
+			# TODO: LINK THE ID TO THE DATABASE
+			console.log "YO PERSON WHO IS PROBABLY GOING TO BE BEN IF HE EVER SEES THIS: 
+			Right here, we have the magical user id which you can link to the session thingy
+			because yeah, stuff is stuff. Basically, just take that req.body.id number and
+			save it to the database, that is, you add it to the id list.
+
+			I'm guessing that you're probably going to read this from your terminal and
+			then you're gonna be all 'wtf man wai so many spaces', and that's just because
+			spaces man, are spaces. SPACE.
+
+			So yeah, what u gonna do here? um. Yeah, you can uh just take that req.body.id and then
+			save it to the database because i hate databases so i aint knowin how u doings
+			dat. 
+
+			I feel oblgiated to write more here because otherwise it wouldn't be noticable
+			enough for the casual terminal watcher, but yeah watsevers.
+
+			BEN BEN BEN BEN BEN BEN BEN BEN BEN BEN BEN BEN BEN BEN BEN BEN BEN BEN 
+			BEN BEN BEN BEN BEN BEN BEN BEN BEN BEN BEN BEN BEN BEN BEN BEN BEN BEN BEN BEN BEN 
+			BEN BEN BEN BEN BEN BEN BEN BEN BEN BEN BEN BEN BEN BEN BEN 
+
+			OKAY. YEAH. WOOOOO
+			", req.body.id
+
+			res.end JSON.stringify(user)
+	)(req, res, next)
+
+
+
+
 
 app.get '/:channel', (req, res) ->
 	name = req.params.channel
 	if name in remote.get_types()
 		res.redirect "/#{name}/lobby"
 	else
-		res.render './game/room.jade', { name, user:req.user }
+		res.render './game/room.jade', { name, user: null } # USER MUST BE NULL
 
 app.get '/:type/:channel', (req, res) ->
 	name = req.params.channel
-	res.render './game/room.jade', { name, user:req.user}
+	res.render './game/room.jade', { name, user: null} # USER MUST BE NULL
 
 
 remote.initialize_remote()
