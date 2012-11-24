@@ -8,35 +8,25 @@ html(lang="en", manifest="/offline.appcache")
 		meta(name="description", "A real time multiplayer quizbowl application")
 
 		link(rel='stylesheet', href='/protobowl.css')
-		script 
-			$(document).ready(function(){
-				$('.dropdown-toggle').dropdown();
-			});
 
 	body
-		header
-			div.navbar.navbar-top
-				div.navbar-inner
-					div.container
-						ul.nav
-							a.brand(href="/")
-								strong Proto
-								| Bowl 
-								em.motto.hidden-phone(style="font-size: small")
-									| doing one thing and doing it acceptably well
-							
-							if user
-								li.dropdown.pull-right
-									a.btn.dropdown-toggle(data-toggle="dropdown", href="#") #{user.username}
-									ul.dropdown-menu
-										li 
-											a(href='/user/profile') Profile
-										li 
-											a(href='/user/settings') Settings
-							li
-								a.btn.btn-primary.new-room(href='/new') New Room
-							
+		div.navbar.navbar-top
+			div.navbar-inner
+				div.container
+					a.brand(href="/")
+						strong Proto
+						| Bowl 
+						em.motto.hidden-phone(style="font-size: small")
+							| doing one thing and doing it acceptably well
+						
+					div.pull-right
+						a.btn.btn-primary.new-room(href="/new") New Room
+						
+					ul.nav.pull-right.hidden-phone
+						li
+							a(href="#", data-toggle="modal", href="#about") About
 
+		
 		div#team_modal.modal.hide.fade(tabindex="-1",role="dialog",aria-hidden="true")
 			div.modal-header
 				button.close(type="button", data-dismiss="modal", aria-hidden="true") ×

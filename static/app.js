@@ -1,4 +1,4 @@
-protobowl_build = 'Fri Nov 23 2012 16:55:08 GMT-0500 (EST)';
+protobowl_build = 'Sat Nov 24 2012 01:16:24 GMT-0500 (EST)';
 /* Modernizr 2.6.1 (Custom Build) | MIT & BSD
  * Build: http://modernizr.com/download/#-touch-teststyles-prefixes
  */
@@ -1774,9 +1774,9 @@ verbAnnotation = function(_arg) {
 
 logAnnotation = function(text) {
   var line;
-  line = $('<p>').addClass('log');
+  line = $('<pre>');
   line.append(text);
-  return addAnnotation(line);
+  return $("#history").prepend(line.hide().slideDown());
 };
 
 notifyTrolls = function() {
@@ -4075,6 +4075,30 @@ QuizPlayer = (function() {
     }
   };
 
+  QuizPlayer.prototype.serialize = function() {
+    var attr, blacklist, data, _ref;
+    data = {};
+    blacklist = ['sockets', 'room'];
+    for (attr in this) {
+      if (__indexOf.call(blacklist, attr) < 0 && ((_ref = typeof this[attr]) !== 'function') && attr[0] !== '_') {
+        data[attr] = this[attr];
+      }
+    }
+    return data;
+  };
+
+  QuizPlayer.prototype.deserialize = function(obj) {
+    var attr, val, _results;
+    _results = [];
+    for (attr in obj) {
+      val = obj[attr];
+      if (attr[0] !== '_') {
+        _results.push(this[attr] = val);
+      }
+    }
+    return _results;
+  };
+
   return QuizPlayer;
 
 })();
@@ -4136,7 +4160,7 @@ QuizRoom = (function() {
     this.timing = [];
     this.cumulative = [];
     this.rate = 1000 * 60 / 5 / 200;
-    this.__timeout = -1;
+    this.__timeout = {};
     this.distribution = default_distribution;
     this.freeze();
     this.users = {};
@@ -4290,6 +4314,7 @@ QuizRoom = (function() {
         user.history.push(user.score());
         user.history = user.history.slice(-30);
       }
+      _this.journal();
       return _this.sync(2);
     });
   };
@@ -4572,29 +4597,25 @@ QuizRoom = (function() {
     return 0;
   };
 
-  QuizRoom.prototype.journal_export = function() {
-    var attr, data, field, id, settings, user, user_blacklist, _i, _len;
+  QuizRoom.prototype.serialize = function() {
+    var attr, blacklist, data, id, user, _ref;
     data = {};
-    user_blacklist = ["sockets", "room"];
+    blacklist = ['users'];
+    for (attr in this) {
+      if (__indexOf.call(blacklist, attr) < 0 && ((_ref = typeof this[attr]) !== 'function') && attr[0] !== '_') {
+        data[attr] = this[attr];
+      }
+    }
     data.users = (function() {
-      var _ref, _results;
+      var _ref1, _results;
+      _ref1 = this.users;
       _results = [];
-      for (id in this.users) {
-        user = {};
-        for (attr in this.users[id]) {
-          if (__indexOf.call(user_blacklist, attr) < 0 && ((_ref = typeof this.users[id][attr]) !== 'function') && attr[0] !== '_') {
-            user[attr] = this.users[id][attr];
-          }
-        }
-        _results.push(user);
+      for (id in _ref1) {
+        user = _ref1[id];
+        _results.push(user.serialize());
       }
       return _results;
     }).call(this);
-    settings = ["type", "name", "difficulty", "category", "rate", "answer_duration", "max_buzz", "distribution", "no_skip", "show_bonus", "admins"];
-    for (_i = 0, _len = settings.length; _i < _len; _i++) {
-      field = settings[_i];
-      data[field] = this[field];
-    }
     return data;
   };
 
@@ -4613,8 +4634,10 @@ var Avg, QuizPlayerClient, QuizPlayerSlave, QuizRoomSlave, StDev, Sum, cache_eve
 
 (function() {
   var t;
-  t = new Date(protobowl_build);
-  return $('#version').text("" + (t.getMonth() + 1) + "/" + (t.getDate()) + "/" + (t.getFullYear() % 100) + " " + (t.getHours()) + ":" + ((t.getMinutes() / 100).toFixed(2).slice(2)));
+  try {
+    t = new Date(protobowl_app_build);
+    return $('#version').text("" + (t.getMonth() + 1) + "/" + (t.getDate()) + "/" + (t.getFullYear() % 100) + " " + (t.getHours()) + ":" + ((t.getMinutes() / 100).toFixed(2).slice(2)));
+  } catch (_error) {}
 })();
 
 initialize_offline = function(cb) {
@@ -4852,6 +4875,10 @@ listen('log', function(data) {
   return verbAnnotation(data);
 });
 
+listen('debug', function(data) {
+  return logAnnotation(data);
+});
+
 listen('sync', function(data) {
   return synchronize(data);
 });
@@ -4864,7 +4891,9 @@ listen('joined', function(data) {
     if (localStorage.username) {
       if (!data.existing) {
         me.name = localStorage.username;
-        me.set_name(me.name);
+        setTimeout(function() {
+          return me.set_name(me.name);
+        }, 137);
       }
     } else {
       localStorage.username = data.name;
@@ -5070,7 +5099,7 @@ cache_event = function() {
       if (localStorage.auto_reload === "yay" || $('#update').data('force') === true) {
         setTimeout(function() {
           return location.reload();
-        }, 500 + Math.random() * 2000);
+        }, 200 + Math.random() * 1000);
       }
       return applicationCache.swapCache();
     case applicationCache.UNCACHED:
