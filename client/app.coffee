@@ -1,18 +1,19 @@
 #= require modernizr.js
 #= require bootstrap.js
-#= require sha1.js
 #= require plugins.coffee
 #= require annotations.coffee
 #= require buttons.coffee
 #= require render.coffee
 #= require time.coffee
+#= require auth.coffee
 #= require ../shared/player.coffee
 #= require ../shared/room.coffee
 
 do ->
-	t = new Date protobowl_build
-	# todo: add padding to minute so it looks less weird
-	$('#version').text "#{t.getMonth()+1}/#{t.getDate()}/#{t.getFullYear() % 100} #{t.getHours()}:#{(t.getMinutes()/100).toFixed(2).slice(2)}"
+	try
+		t = new Date protobowl_app_build
+		# todo: add padding to minute so it looks less weird
+		$('#version').text "#{t.getMonth()+1}/#{t.getDate()}/#{t.getFullYear() % 100} #{t.getHours()}:#{(t.getMinutes()/100).toFixed(2).slice(2)}"
 
 
 # asynchronously load the other code which doesn't need to be there on startup necessarily
@@ -188,6 +189,7 @@ listen 'redirect', (url) -> window.location = url
 listen 'alert', (text) -> window.alert text
 listen 'chat', (data) -> chatAnnotation data
 listen 'log', (data) -> verbAnnotation data
+listen 'debug', (data) -> logAnnotation data
 listen 'sync', (data) -> synchronize data
 
 listen 'joined', (data) ->
@@ -196,12 +198,19 @@ listen 'joined', (data) ->
 
 	me.name = data.name
 
-	if localStorage.username
-		if !data.existing
-			me.name = localStorage.username
-			me.set_name me.name
-	else
-		localStorage.username = data.name
+	if me.id[0] != '_'
+		if localStorage.username
+			if !data.existing
+				me.name = localStorage.username
+				setTimeout ->
+					me.set_name me.name
+				, 137 # for some reason there's this odd bug where
+				# if i dont have a timeout, this doesn't update the
+				# stuff at all, so I really don't understand why
+				# and moreover, I think the fine structure constant
+				# is an appropriate metaphor for that non-understanding
+		else
+			localStorage.username = data.name
 
 	$('#slow').slideUp()
 
@@ -348,7 +357,7 @@ cache_event = ->
 			if localStorage.auto_reload is "yay" or $('#update').data('force') is true
 				setTimeout ->
 					location.reload()
-				, 500 + Math.random() * 2000
+				, 200 + Math.random() * 1000
 			applicationCache.swapCache()
 		when applicationCache.UNCACHED
 			$('#cachestatus').text 'Uncached'
@@ -377,4 +386,3 @@ do -> # isolate variables from globals
 	if window.applicationCache
 		for name in ['cached', 'checking', 'downloading', 'error', 'noupdate', 'obsolete', 'progress', 'updateready']
 			applicationCache.addEventListener name, cache_event
-

@@ -1,3 +1,4 @@
+protobowl_offline_build = 'Sat Nov 24 2012 14:15:22 GMT-0500 (EST)';
 /*
 html5slider - a JS implementation of <input type=range> for Firefox 4 and up
 https://github.com/fryn/html5slider

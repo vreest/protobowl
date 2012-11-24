@@ -1,41 +1,62 @@
 !!!
 html(lang="en")
 	head
-		title fix this - ProtoBowl 
+		block title
+
 		meta(charset="utf8")
 		meta(name="viewport", content="width=device-width, initial-scale=1.0")
 		meta(name="keywords", content="protobowl,quizbowl,application,reader,academic,multiplayer,practice")
 		meta(name="description", "A real time multiplayer quizbowl application")
 
 		link(rel='stylesheet', href='/protobowl.css')
-	header
-		div.navbar.navbar-top
-			div.navbar-inner
-				div.container
-					a.brand(href="/")
-						strong Proto
-						| Bowl 
-						em.motto.hidden-phone(style="font-size: small")
-							| doing one thing and doing it acceptably well
-
-					div.pull-right
-						a.btn.btn-primary.new-room(href="/new") New Room
+	
 		body
-			block content
-			block scripts
-		footer
-			script(src="/socket.io/socket.io.js")
+
+
+			div.navbar.navbar-top
+				div.navbar-inner
+					div.container
+						a.brand(href="/")
+							strong Proto
+							| Bowl 
+							em.motto.hidden-phone(style="font-size: small")
+								| doing one thing and doing it acceptably well
+
+						div.pull-right
+
+							a.btn.btn-primary.new-room(href="/new") New Room
+							ul#userinfo.nav(role="navigation", style="display:#{typeof name == 'undefined' ? '' : 'none'}")
+								li#signin(style="display:#{user ? 'none' : ''}")
+									a(href="/signin")
+										i.icon-signin
+										| Sign In
+								li#user.dropdown(style="display:#{user ? '' : 'none'}")
+									a.dropdown-toggle(href="#", role="button", data-toggle="dropdown")
+										| Welcome <span class="user-name">#{user && user.username}</span>!
+										b.caret
+									ul.dropdown-menu(role="menu")
+										li
+											a(href="/user/profile") Profile
+											a(href="/user/stats") Stats
+											li.divider
+											a(href="/logout") Logout
+
+
+			div.container
+				block content
+
 			script(src="https://login.persona.org/include.js")
+
+			script(src="//ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js")
+			// if(typeof jQuery == 'undefined') document.write(unescape("%3Cscript%20src%3D%22lib/jquery.min.js%22%3E%3C/script%3E"));
+			
+
+			block scripts
 
 			script(type="text/javascript")
 				var _gaq = _gaq || [];
 				_gaq.push(['_setAccount', 'UA-34434821-1']);
 				_gaq.push(['_trackPageview']);
-
-			script(src="//ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js")
-			// if(typeof jQuery == 'undefined') document.write(unescape("%3Cscript%20src%3D%22lib/jquery.min.js%22%3E%3C/script%3E"));
-			
-			script(src="/app.js")
 
 			script(type="text/javascript")
 				(function() {
