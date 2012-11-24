@@ -236,6 +236,7 @@ passport.use 'browserid', new BrowserID {audience: 'localhost:5555'},
 
 
 app.use express.compress()
+# app.use express.staticCache()
 app.use express.cookieParser()
 app.use express.bodyParser()
 app.use express.session({ secret: 'keyboard cat' })
