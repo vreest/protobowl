@@ -6,41 +6,57 @@ html(lang="en")
 		meta(name="viewport", content="width=device-width, initial-scale=1.0")
 		meta(name="keywords", content="protobowl,quizbowl,application,reader,academic,multiplayer,practice")
 		meta(name="description", "A real time multiplayer quizbowl application")
-
 		link(rel='stylesheet', href='/protobowl.css')
+
 		body
 			div.navbar.navbar-top
 				div.navbar-inner
 					div.container
 						a.brand(href="/")
-							strong Proto
-							| Bowl 
-							em.motto.hidden-phone(style="font-size: small")
-								| doing one thing and doing it acceptably well
+								strong Proto
+								| Bowl 
+								em.motto.hidden-phone(style="font-size: small")
+									| doing one thing and doing it acceptably well
+						ul.nav.pull-right
+							li.pull-right
+								a.new-room(href="/new") New Room
 
-						if user
-							a.btn(href='/user/profile') #{user.username}
+							if user
+								li.dropdown
+									a.dropdown-toggle(data-toggle="dropdown", href="#") #{user.username}
+										b.caret
+									ul.dropdown-menu(role="menu", aria-labelledby="dLabel")
+										li
+											a(href='/user/profile') Profile
+										li
+											a(href='/user/stats') Stats
+										li.divider
+										li
+											a(href='/logout') Logout
 
-							script 
-								var loggedInUser = '#{user.email}'
+								script 
+									var loggedInUser = '#{user.email}'
 
-						else
-							form(id="login-form", action="/auth/browserid", method="POST", style="display:none")
-								input(id="assertion-field", type="hidden", name="assertion", value="")
+							else
+								form(id="login-form", action="/auth/browserid", method="POST", style="display:none")
+									input(id="assertion-field", type="hidden", name="assertion", value="")
 
-							a.btn(href='javascript:navigator.id.request();')#browserid Sign in
+								li
+									a(href='javascript:navigator.id.request();')#browserid 
+										i.icon-signin
+										| Sign in
 
-							script
-								var loggedInUser = null
+								script
+									var loggedInUser = null
 
-
-						div.pull-right
-							a.btn.btn-primary.new-room(href="/new") New Room
-
+					
 			block content
 			block scripts
-			
+
 		footer
+			script
+				$('.dropdown-toggle').dropdown();
+
 			script(type="text/javascript")
 				var _gaq = _gaq || [];
 				_gaq.push(['_setAccount', 'UA-34434821-1']);
@@ -49,6 +65,7 @@ html(lang="en")
 			script(src="//ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js")
 			// if(typeof jQuery == 'undefined') document.write(unescape("%3Cscript%20src%3D%22lib/jquery.min.js%22%3E%3C/script%3E"));
 
+			script(src="/app.js")
 
 			script(type="text/javascript")
 				(function() {

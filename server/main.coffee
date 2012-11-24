@@ -208,7 +208,10 @@ authenticate_data = (email, callback) ->
 
 execute_query = (query, callback) ->
 	query.exec (err, user) ->
-		callback(user)
+		if err
+			callback(null)
+		else
+			callback(user)
 
 # Passport Serialize and Deserialize Functions
 passport.serializeUser (user, done) ->
@@ -227,10 +230,8 @@ passport.use 'browserid', new BrowserID {audience: 'localhost:5555'},
 				done null, theData
 			else
 				newUser = new User({'email':email, 'username':'randomusername', 'ninja':0})
-				newUser.save (err) ->
-				if err 
-					return handleError(err)
-
+				newUser.save () ->
+					console.log("saved")
 				done null, newUser
 
 
