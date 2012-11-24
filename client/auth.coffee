@@ -15,7 +15,7 @@ navigator.id.watch {
 	onlogout: ->
 		if window.logged_in_user
 			$('#userinfo').fadeOut()
-			window.location = '/logout'
+			window.location = "/logout?return=#{encodeURIComponent(window.location.href)}"
 		else
 			$('#userinfo').fadeIn()
 }

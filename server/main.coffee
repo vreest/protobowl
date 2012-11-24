@@ -364,10 +364,6 @@ class SocketQuizPlayer extends QuizPlayer
 					output[check_name]++ if udat.active()
 		fn output if fn
 
-	user_auth: (assertion, cb) ->
-		console.log assertion
-		cb?()
-
 	add_socket: (sock) ->
 		if @sockets.length is 0
 			@last_session = @room.serverTime()
@@ -780,13 +776,12 @@ app.get '/user/stats', ensureAuthenticated,  (req, res) ->
 
 
 app.get '/', (req, res) -> 
-	console.log(req.user)
 	res.render './info/home.jade', {user:req.user}
 
 
 app.get '/logout', (req, res) ->
 	req.session.destroy()
-	res.redirect('/')
+	res.redirect(req.params.return || '/')
 
 app.post '/auth/browserid', passport.authenticate('browserid', { failureRedirect: '/login' }), (req, res) ->
 	res.redirect('/');

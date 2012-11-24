@@ -54,8 +54,6 @@ class QuizPlayer
 
 	online: -> true
 
-	user_auth: (assertion, cb) -> cb?() # not defined here
-
 	score: ->
 		CORRECT = 10
 		EARLY = 15
