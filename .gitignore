@@ -3,5 +3,5 @@ remote.coffee
 node_modules
 protobowl.sublime-workspace
 app.js
-auth.js
 offline.js
+auth.js
