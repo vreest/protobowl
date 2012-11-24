@@ -8,37 +8,38 @@ html(lang="en")
 		meta(name="description", "A real time multiplayer quizbowl application")
 
 		link(rel='stylesheet', href='/protobowl.css')
-	header
-		div.navbar.navbar-top
-			div.navbar-inner
-				div.container
-					a.brand(href="/")
-						strong Proto
-						| Bowl 
-						em.motto.hidden-phone(style="font-size: small")
-							| doing one thing and doing it acceptably well
-
-					if user
-						a.btn(href='/user/profile') #{user.username}
-
-						script 
-							var loggedInUser = '#{user.email}'
-
-					else
-						form(id="login-form", action="/auth/browserid", method="POST", style="display:none")
-							input(id="assertion-field", type="hidden", name="assertion", value="")
-
-						a.btn(href='javascript:navigator.id.request();')#browserid Sign in
-
-						script
-							var loggedInUser = null
-
-
-					div.pull-right
-						a.btn.btn-primary.new-room(href="/new") New Room
 		body
+			div.navbar.navbar-top
+				div.navbar-inner
+					div.container
+						a.brand(href="/")
+							strong Proto
+							| Bowl 
+							em.motto.hidden-phone(style="font-size: small")
+								| doing one thing and doing it acceptably well
+
+						if user
+							a.btn(href='/user/profile') #{user.username}
+
+							script 
+								var loggedInUser = '#{user.email}'
+
+						else
+							form(id="login-form", action="/auth/browserid", method="POST", style="display:none")
+								input(id="assertion-field", type="hidden", name="assertion", value="")
+
+							a.btn(href='javascript:navigator.id.request();')#browserid Sign in
+
+							script
+								var loggedInUser = null
+
+
+						div.pull-right
+							a.btn.btn-primary.new-room(href="/new") New Room
+
 			block content
 			block scripts
+			
 		footer
 			script(type="text/javascript")
 				var _gaq = _gaq || [];
