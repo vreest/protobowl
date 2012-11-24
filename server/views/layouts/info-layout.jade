@@ -18,9 +18,6 @@ html(lang="en")
 								em.motto.hidden-phone(style="font-size: small")
 									| doing one thing and doing it acceptably well
 						ul.nav.pull-right
-							li.pull-right
-								a.new-room(href="/new") New Room
-
 							if user
 								li.dropdown
 									a.dropdown-toggle(data-toggle="dropdown", href="#") #{user.username}
@@ -48,6 +45,9 @@ html(lang="en")
 
 								script
 									var loggedInUser = null
+
+							li.pull-right
+								a.new-room(href="/new") New Room
 
 					
 			block content

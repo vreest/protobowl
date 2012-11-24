@@ -14,17 +14,42 @@ html(lang="en", manifest="/offline.appcache")
 			div.navbar-inner
 				div.container
 					a.brand(href="/")
-						strong Proto
-						| Bowl 
-						em.motto.hidden-phone(style="font-size: small")
-							| doing one thing and doing it acceptably well
-						
-					div.pull-right
-						a.btn.btn-primary.new-room(href="/new") New Room
-						
-					ul.nav.pull-right.hidden-phone
-						li
-							a(href="#", data-toggle="modal", href="#about") About
+							strong Proto
+							| Bowl 
+							em.motto.hidden-phone(style="font-size: small")
+								| doing one thing and doing it acceptably well
+					ul.nav.pull-right
+						if user
+							li.dropdown
+								a.dropdown-toggle(data-toggle="dropdown", href="#") #{user.username}
+									b.caret
+								ul.dropdown-menu(role="menu", aria-labelledby="dLabel")
+									li
+										a(href='/user/profile') Profile
+									li
+										a(href='/user/stats') Stats
+									li.divider
+									li
+										a(href='/logout') Logout
+
+							script 
+								var loggedInUser = '#{user.email}'
+
+						else
+							form(id="login-form", action="/auth/browserid", method="POST", style="display:none")
+								input(id="assertion-field", type="hidden", name="assertion", value="")
+
+							li
+								a(href='javascript:navigator.id.request();')#browserid 
+									i.icon-signin
+									| Sign in
+
+							script
+								var loggedInUser = null
+
+						li.pull-right
+							a.new-room(href="/new") New Room
+
 
 		
 		div#team_modal.modal.hide.fade(tabindex="-1",role="dialog",aria-hidden="true")
@@ -290,7 +315,13 @@ html(lang="en", manifest="/offline.appcache")
 
 		
 
-			
+		script
+			$('.dropdown-toggle').dropdown();
+
+		script(src="https://login.persona.org/include.js")
+		script(src='/auth.js')
+
+
 		script(src="/socket.io/socket.io.js")
 		script(type="text/javascript")
 			var _gaq = _gaq || [];
