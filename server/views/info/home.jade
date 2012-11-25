@@ -1,60 +1,34 @@
 extends ../layouts/normal-layout
 
 block title
-	title ProtoBowl Home
+	title Home - ProtoBowl
 
 block content
 	if user
 		h2 Hello #{user.email}!
+		h4 All your base are belong to us.
 	else
 		h2 Please Sign In
 		p 
 			a.btn(href='/signin') Sign in
 
-	pre
-		| Look at the stars
-		| Look how they shine for you
-		| And everything you do
-		| Yeah, they were all yellow
-		| 
-		| I came along
-		| I wrote a song for you
-		| And all the things you do
-		| And it was called 'Yellow'
-		| 
-		| So then I took my time
-		| Oh what a thing to've done
-		| And it was all yellow
-		| 
-		| Your skin, oh yeah, your skin and bones
-		| Turn into something beautiful
-		| D'you know? You know I love you so
-		| You know I love you so
-		| 
-		| I swam across
-		| I jumped across for you
-		| Oh what a thing to do
-		| 'Cause you were all yellow
-		| 
-		| I drew a line
-		| I drew a line for you
-		| Oh what a thing to do
-		| And it was all yellow
-		| 
-		| Your skin, oh yeah, your skin and bones
-		| Turn into something beautiful
-		| D'you know? For you I bleed myself dry
-		| For you I bleed myself dry
-		| 
-		| It's true
-		| Look how they shine for you
-		| Look how they shine for you
-		| Look how they shine for
-		| 
-		| Look how they shine for you
-		| Look how they shine for you
-		| Look how they shine
-		| 
-		| Look at the stars
-		| Look how they shine for you
-		| And all the things that you do
+	hr 
+
+	blockquote
+		p Look at the stars
+		p Look how they shine for you
+		p And everything you do
+		p Yeah, they were all yellow
+		small Coldplay
+
+	hr
+
+	blockquote
+		p For any complex problem, there is always a solution that is simple, clear, and wrong
+		small H. L. Mencken
+
+	hr
+
+	blockquote
+		p Welcome to Kansas City, a place where bandwidth flows like water
+		small Google Fiber Keynote
