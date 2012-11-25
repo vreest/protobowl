@@ -173,7 +173,8 @@ user_schema = new mongoose.Schema {
 	email: String,
 	username: String,
 	ninja: Boolean,
-	events: Array
+	events: Array,
+	idlist: Array
 }
 
 User = db.model 'User', user_schema
@@ -861,7 +862,6 @@ get_events = (query, callback) ->
 			events = data.events
 			callback(events)
 		else
-			console.log("no events")
 			callback(null)
 
 app.post '/auth/link', (req, res, next) ->
@@ -869,28 +869,19 @@ app.post '/auth/link', (req, res, next) ->
 		return next(err) if err
 		res.end 'fail' if !user
 		req.login user, (err) ->
-			# TODO: LINK THE ID TO THE DATABASE
-			req.body.id
-			console.log(user)
-			eventQuery = Event.findOne {"userid":req.body.id}
-			userQuery = User.findOne {"email":user.email}
-			
-			get_events eventQuery, (data) ->
-				console.log(data)
 
-			res.end JSON.stringify(user)
+			User.update({"email":user.email}, {$addToSet : {"idlist":req.body.id}}).exec()
+
+			for id in user.idlist
+				event_query = Event.findOne {"userid":id}
+				get_events event_query, (events) ->
+					if events
+						for e in events
+							User.update({"email":user.email}, { $addToSet : {"events":e}}).exec()
+					else
+						console.log("no events")
+
 	)(req, res, next)
-
-
-# 			Right here, we have the magical user id which you can link to the session thingy
-# 			because yeah, stuff is stuff. Basically, just take that req.body.id number and
-# 			save it to the database, that is, you add it to the id list.
-
-# 			So yeah, what u gonna do here? um. Yeah, you can uh just take that req.body.id and then
-# 			save it to the database because i hate databases so i aint knowin how u doings
-# 			dat. 
-
-
 
 
 app.get '/:channel', (req, res) ->
