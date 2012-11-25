@@ -174,7 +174,8 @@ user_schema = new mongoose.Schema {
 	username: String,
 	ninja: Boolean,
 	events: Array,
-	idlist: Array
+	idlist: Array, 
+	cumsum: Number
 }
 
 User = db.model 'User', user_schema
@@ -225,6 +226,7 @@ add_event = (userid, eventObj) ->
 			newEvents = new Event({"userid":userid, "events":[eventObj]})
 			newEvents.save (err) ->
 				console.log(err)
+
 			
 # Passport Serialize and Deserialize Functions
 passport.serializeUser (user, done) ->
@@ -240,7 +242,7 @@ passport.use 'browserid', new BrowserID {audience: 'localhost:5555'},
 			if theData
 				done null, theData
 			else
-				newUser = new User({'email':email, 'username':'randomusername', 'ninja':0, 'ids': []})
+				newUser = new User({'email':email, 'username':'randomusername', 'ninja':0, 'cumsum':0, 'idlist': [], 'events':[]})
 				newUser.save (err) ->
 					console.log(err)
 
@@ -880,6 +882,8 @@ app.post '/auth/link', (req, res, next) ->
 							User.update({"email":user.email}, { $addToSet : {"events":e}}).exec()
 					else
 						console.log("no events")
+						
+		res.end JSON.stringify(user)
 
 	)(req, res, next)
 
