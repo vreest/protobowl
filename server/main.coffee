@@ -137,12 +137,16 @@ if app.settings.env is 'development'
 			console.log "changed file", filename
 			scheduledUpdate = setTimeout updateCache, 500
 
+	updateCache()
+	
 	fs.watch "shared", watcher
 	fs.watch "client", watcher
 	fs.watch "static/less", watcher
 	fs.watch "server/views", watcher
 
 	updateCache() # auto-recompile in dev mode
+
+
 
 
 try 
@@ -177,6 +181,26 @@ users = User.collection
 users.ensureIndex { id: 1, email: 1, username: 1, ninja:1, events: 1 }
 
 
+db = mongoose.createConnection 'localhost', 'protobowlevents_db'
+
+db.on 'error', (err) ->
+	console.log 'Database Error', err
+
+db.on 'open', (err) ->
+	console.log 'opened database', err
+
+event_schema = new mongoose.Schema {
+	userid: mongoose.Schema.Types.Mixed,
+	events: Array
+}
+
+Event = db.model 'Event', event_schema
+events = Event.collection
+# events.ensureIndex { userid:1, events:1 }
+
+
+
+
 authenticate_data = (email, callback) ->
 	query = User.findOne {"email":email}
 
@@ -187,9 +211,20 @@ authenticate_data = (email, callback) ->
 			callback(null)
 
 execute_query = (query, callback) ->
-	query.exec (err, user) ->
-		callback(user)
+	query.exec (err, data) ->
+		callback(data)
 
+add_event = (userid, eventObj) ->
+	query = Event.findOne {"userid":userid}
+
+	execute_query query, (data) ->
+		if data
+			Event.update({"userid":userid}, { $push : {"events": eventObj}}).exec()
+		else
+			newEvents = new Event({"userid":userid, "events":[eventObj]})
+			newEvents.save (err) ->
+				console.log(err)
+			
 # Passport Serialize and Deserialize Functions
 passport.serializeUser (user, done) ->
 	done null, user
@@ -200,16 +235,13 @@ passport.deserializeUser (user, done) ->
 # Passport-BrowserID Strategy
 passport.use 'browserid', new BrowserID {audience: 'localhost:5555'},
 	(email, done) ->
-		query = User.findOne {"email":email}
-
 		authenticate_data email, (theData) ->
 			if theData
 				done null, theData
 			else
 				newUser = new User({'email':email, 'username':'randomusername', 'ninja':0, 'ids': []})
 				newUser.save (err) ->
-				if err 
-					return handleError(err)
+					console.log(err)
 
 				done null, newUser
 
@@ -309,6 +341,8 @@ class SocketQuizRoom extends QuizRoom
 		if @attempt?.user
 			ruling = @check_answer @attempt.text, @answer, @question
 			log 'buzz', [@name, @attempt.user + '-' + @users[@attempt.user].name, @attempt.text, @answer, ruling]
+			eventObj = {"text":@attempt.text, "answer":@answer, "ruling":ruling}
+			add_event(@attempt.user, eventObj)
 		super(session)
 
 	deserialize: (data) ->
@@ -819,38 +853,42 @@ app.get '/logout', (req, res) ->
 app.post '/auth/browserid', passport.authenticate('browserid', { failureRedirect: '/login' }), (req, res) ->
 	res.redirect('/');
 
+get_events = (query, callback) ->	
+	events = new Array()
+
+	execute_query query, (data) ->
+		if data
+			events = data.events
+			callback(events)
+		else
+			console.log("no events")
+			callback(null)
+
 app.post '/auth/link', (req, res, next) ->
 	passport.authenticate('browserid', (err, user, info) ->
 		return next(err) if err
 		res.end 'fail' if !user
 		req.login user, (err) ->
 			# TODO: LINK THE ID TO THE DATABASE
-			console.log "YO PERSON WHO IS PROBABLY GOING TO BE BEN IF HE EVER SEES THIS: 
-			Right here, we have the magical user id which you can link to the session thingy
-			because yeah, stuff is stuff. Basically, just take that req.body.id number and
-			save it to the database, that is, you add it to the id list.
-
-			I'm guessing that you're probably going to read this from your terminal and
-			then you're gonna be all 'wtf man wai so many spaces', and that's just because
-			spaces man, are spaces. SPACE.
-
-			So yeah, what u gonna do here? um. Yeah, you can uh just take that req.body.id and then
-			save it to the database because i hate databases so i aint knowin how u doings
-			dat. 
-
-			I feel oblgiated to write more here because otherwise it wouldn't be noticable
-			enough for the casual terminal watcher, but yeah watsevers.
-
-			BEN BEN BEN BEN BEN BEN BEN BEN BEN BEN BEN BEN BEN BEN BEN BEN BEN BEN 
-			BEN BEN BEN BEN BEN BEN BEN BEN BEN BEN BEN BEN BEN BEN BEN BEN BEN BEN BEN BEN BEN 
-			BEN BEN BEN BEN BEN BEN BEN BEN BEN BEN BEN BEN BEN BEN BEN 
-
-			OKAY. YEAH. WOOOOO
-			", req.body.id
+			req.body.id
+			console.log(user)
+			eventQuery = Event.findOne {"userid":req.body.id}
+			userQuery = User.findOne {"email":user.email}
+			
+			get_events eventQuery, (data) ->
+				console.log(data)
 
 			res.end JSON.stringify(user)
 	)(req, res, next)
 
+
+# 			Right here, we have the magical user id which you can link to the session thingy
+# 			because yeah, stuff is stuff. Basically, just take that req.body.id number and
+# 			save it to the database, that is, you add it to the id list.
+
+# 			So yeah, what u gonna do here? um. Yeah, you can uh just take that req.body.id and then
+# 			save it to the database because i hate databases so i aint knowin how u doings
+# 			dat. 
 
 
 
