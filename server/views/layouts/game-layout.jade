@@ -32,7 +32,7 @@ html(lang="en")
 										| Sign In
 								li#user.dropdown(style="display:#{user ? '' : 'none'}")
 									a.dropdown-toggle(href="#", role="button", data-toggle="dropdown")
-										| Welcome <span class="user-name">#{user && user.username}</span>!
+										| <span class="user-name">#{user && user.username}</span>
 										b.caret
 									ul.dropdown-menu(role="menu")
 										li

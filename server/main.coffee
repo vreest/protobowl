@@ -778,6 +778,11 @@ app.get '/user/stats', ensureAuthenticated,  (req, res) ->
 app.get '/', (req, res) -> 
 	res.render './info/home.jade', {user:req.user}
 
+app.get '/about', (req, res) ->
+	res.render './info/about.jade', {user:req.user}
+
+app.get '/feedback', (req, res) ->
+	res.render './info/feedback.jade', {user:req.user}
 
 app.get '/logout', (req, res) ->
 	req.session.destroy()
