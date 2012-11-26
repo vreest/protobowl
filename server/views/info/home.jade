@@ -4,49 +4,91 @@ block title
 	title Home - ProtoBowl
 
 block content
-	if user
-		h2 Hello #{user.email}!
-		h4 All your base are belong to us.
-	else
-		h2 Please Sign In
-		p 
-			a.btn(href='/signin') Sign in
+	div.jumpotron.masthead
+		div.container
+			h1 Protobowl
+			p An Online Real Time Multiplayer QuizBowl Game
+			br
+			if user
+				a(href='/lobby').btn.btn-large.btn-primary Get Playin!
+			else
+				a(href='/signin').btn.btn-large.btn-primary Sign in
+			br
+			br
+			ul.masthead-links
+				li
+					a(href="/about") About
+				li
+					a(href="/help") Help
+				li
+					a(href="/contact") Contact
+				li
+					a(href="/feeback") Feedback
+
+	//- h3 Welcome to Protobowl
+	//- p If you want to learn more about the site or who made it checkout out our  
+	//- 	a(href='/about') 
+	//- 		| about page
+
+	//- p Protobowl, as the name suggests, is definetly not a finished product, if you
+	//- 	| have any helpful critisim or feedback drop us a line in our  
+	//- 	a(href='/feedback')   
+	//- 		| feedback form  
+	//- 	| hit us up on twitter 
+	//- 	a(href="https://twitter.com/protobowl")  
+	//- 		| @protobowl
+	//- 	| or email us at  
+	//- 	a(href="mailto:info@protobowl.com")  
+	//- 		| info@protobowl.com
+
+
+	hr 
+
+	h3 Join a Pre-existing Room
+
+	table.table
+		thead
+			tr
+				th Room Name
+				th Difficulty
+				th # in Room
+		tbody
 
 	hr
 
-	h3 Welcome to Protobowl
-	p If you want to learn more about the site or who made it checkout out our  
-		a(href='/about') 
-			| about page
+	h3 Create Your Own Room
 
-	p Protobowl, as the name suggests, is definetly not a finished product, if you
-		| have any helpful critisim or feedback drop us a line in our  
-		a(href='/feedback')   
-			| feedback form  
-		| hit us up on twitter 
-		a(href="https://twitter.com/protobowl")  
-			| @protobowl
-		| or email us at  
-		a(href="mailto:info@protobowl.com")  
-			| info@protobowl.com
-		br
-		br
-		br
-	blockquote
-		p Look at the stars
-		p Look how they shine for you
-		p And everything you do
-		p Yeah, they were all yellow
-		small Coldplay
+	input(type="text", placeholder="Name of your room")#room_name
+	br
+	input(type="password", placeholder="Password")#password
+	br
+	button.btn#make_room_button Make the Room
 
-	hr
 
-	blockquote
-		p For any complex problem, there is always a solution that is simple, clear, and wrong
-		small H. L. Mencken
 
-	hr
 
-	blockquote
-		p Welcome to Kansas City, a place where bandwidth flows like water
-		small Google Fiber Keynote
+
+
+
+
+	//- 	br
+	//- 	br
+	//- 	br
+	//- blockquote
+	//- 	p Look at the stars
+	//- 	p Look how they shine for you
+	//- 	p And everything you do
+	//- 	p Yeah, they were all yellow
+	//- 	small Coldplay
+
+	//- hr
+
+	//- blockquote
+	//- 	p For any complex problem, there is always a solution that is simple, clear, and wrong
+	//- 	small H. L. Mencken
+
+	//- hr
+
+	//- blockquote
+	//- 	p Welcome to Kansas City, a place where bandwidth flows like water
+	//- 	small Google Fiber Keynote

@@ -23,7 +23,7 @@ navigator.id.watch {
 wait_id = (assertion) ->
 	return setTimeout(wait_id, 137) if me.id.length isnt 40
 
-	xhr = $.post "/auth/link", { assertion, id: me.id }
+	xhr = $.post "/auth/link", { assertion, id: me.id, room:room.name }
 
 	xhr.success (data) ->
 		$('#userinfo').fadeIn()

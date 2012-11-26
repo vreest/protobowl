@@ -1,4 +1,4 @@
-protobowl_app_build = 'Sun Nov 25 2012 14:24:16 GMT-0500 (EST)';
+protobowl_app_build = 'Mon Nov 26 2012 00:49:29 GMT-0500 (EST)';
 /* Modernizr 2.6.1 (Custom Build) | MIT & BSD
  * Build: http://modernizr.com/download/#-touch-teststyles-prefixes
  */
@@ -2060,7 +2060,8 @@ wait_id = function(assertion) {
   }
   xhr = $.post("/auth/link", {
     assertion: assertion,
-    id: me.id
+    id: me.id,
+    room: room.name
   });
   xhr.success(function(data) {
     var json;
@@ -4868,6 +4869,10 @@ QuizPlayer = (function() {
     return _results;
   };
 
+  QuizPlayer.prototype.testing_delete_me_later = function(new_id) {
+    return this.room.merge_user(this.id, new_id);
+  };
+
   return QuizPlayer;
 
 })();
@@ -5652,6 +5657,23 @@ listen('sync', function(data) {
   return synchronize(data);
 });
 
+listen('rename_user', function(_arg) {
+  var new_id, old_id;
+  old_id = _arg.old_id, new_id = _arg.new_id;
+  if (me.id === old_id) {
+    me.id = new_id;
+    room.users[me.id] = me;
+  }
+  $(".user-" + old_id).removeClass("user-" + old_id).addClass("user-" + new_id);
+  return delete room.users[old_id];
+});
+
+listen('delete_user', function(id) {
+  console.log('deleting user', id);
+  delete room.users[id];
+  return renderUsers();
+});
+
 listen('joined', function(data) {
   me.id = data.id;
   room.users[me.id] = me;
@@ -5661,7 +5683,8 @@ listen('joined', function(data) {
       if (!data.existing) {
         setTimeout(function() {
           me.name = localStorage.username;
-          return me.set_name(me.name);
+          me.set_name(me.name);
+          return $('#username').val(me.name);
         }, 137);
       }
     } else {

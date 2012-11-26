@@ -142,9 +142,7 @@ if app.settings.env is 'development'
 	fs.watch "shared", watcher
 	fs.watch "client", watcher
 	fs.watch "static/less", watcher
-	fs.watch "server/views", watcher
-
-	updateCache() # auto-recompile in dev mode
+	fs.watch "server/views/game/room.jade", watcher
 
 
 
@@ -172,10 +170,7 @@ db.on 'open', (err) ->
 user_schema = new mongoose.Schema {
 	email: String,
 	username: String,
-	ninja: Boolean,
-	events: Array,
-	idlist: Array, 
-	cumsum: Number
+	ninja: Boolean
 }
 
 User = db.model 'User', user_schema
@@ -192,15 +187,15 @@ db.on 'open', (err) ->
 	console.log 'opened database', err
 
 event_schema = new mongoose.Schema {
-	userid: mongoose.Schema.Types.Mixed,
-	events: Array
+	userid: String,
+	hashed: Boolean,
+	questions_seen: Number,
+	time_spent: Number, 
+	buzzs: Array
 }
 
 Event = db.model 'Event', event_schema
 events = Event.collection
-# events.ensureIndex { userid:1, events:1 }
-
-
 
 
 authenticate_data = (email, callback) ->
@@ -344,9 +339,25 @@ class SocketQuizRoom extends QuizRoom
 		if @attempt?.user
 			ruling = @check_answer @attempt.text, @answer, @question
 			log 'buzz', [@name, @attempt.user + '-' + @users[@attempt.user].name, @attempt.text, @answer, ruling]
-			eventObj = {"text":@attempt.text, "answer":@answer, "ruling":ruling}
-			add_event(@attempt.user, eventObj)
 		super(session)
+
+	merge_user: (id, new_id) ->
+		return false if !@users[id]
+		if @users[new_id]
+			# merge current user into this one
+			sum_terms = ['guesses', 'interrupts', 'early', 'seen', 'correct', 'time_spent']
+			for term in sum_terms
+				@users[new_id][term] += @users[id][term]
+			delete @users[id]
+		else
+			# rename the current user into this new one
+			@users[new_id] = @users[id]
+			@users[new_id].id = new_id
+			delete @users[id]
+			
+		@emit 'rename_user', {old_id: id, new_id: new_id}
+		@sync(1)
+		
 
 	deserialize: (data) ->
 		blacklist = ['users']
@@ -555,38 +566,6 @@ process_queue = ->
 
 setInterval process_queue, 1000	
 
-last_full_sync = 0
-partial_journal = (name) ->
-	journal_config.path = '/journal'
-	journal_config.method = 'POST'
-	req = http.request journal_config, (res) ->
-		res.setEncoding 'utf8'
-		# console.log "committed journal for", name
-		res.on 'data', (chunk) ->
-			if chunk == 'do_full_sync'
-				if last_full_sync < new Date - 1000 * 60 * 2
-					log 'log', 'got trigger to do full sync'
-					last_full_sync = +new Date
-					journal_queue = {} # full syncs clear queue
-					full_journal_sync()
-	req.on 'error', (e) ->
-		log 'error', 'journal error ' + e.message
-		# console.log "journal error"
-	req.write(JSON.stringify(rooms[name].serialize()))
-	req.end()
-
-full_journal_sync = ->
-	backup = (room.serialize() for name, room of rooms)
-	journal_config.path = '/full_sync'
-	journal_config.method = 'POST'
-	req = http.request journal_config, (res) ->
-		# console.log "done full sync"
-		log 'log', 'completed full sync'
-	req.on 'error', (e) ->
-		log 'error', 'full sync error ' + e.message
-	req.write(JSON.stringify(backup))
-	req.end()
-
 
 restore_journal = (callback) ->
 	journal_config.path = '/retrieve'
@@ -599,9 +578,6 @@ restore_journal = (callback) ->
 		res.on 'end', ->
 			console.log "Restoring Journal Contents #{packet.length} bytes"
 			json = JSON.parse(packet)
-
-			# a new question's gonna be pickt, so just restore settings 
-			# fields = ["type", "difficulty", "distribution", "category", "rate", "answer_duration", "max_buzz", "no_skip", "admins"]
 			for name, data of json when !(name of rooms)
 				room = new SocketQuizRoom(name) 
 				rooms[name] = room
@@ -723,18 +699,7 @@ app.post '/stalkermode/algore', (req, res) ->
 	remote.initialize_remote (time, layers) ->
 		res.end("counted all cats in #{time}ms: #{util.inspect(layers)}")
 
-app.get '/stalkermode/full', (req, res) ->
-	res.render './stalkermode/admin.jade', {
-		env: app.settings.env,
-		mem: util.inspect(process.memoryUsage()),
-		start: uptime_begin,
-		reaped: reaped,
-		full_room: true,
-		queue: Object.keys(journal_queue).length,
-		rooms: rooms
-	}
-
-app.get '/stalkermode/users', (req, res) -> res.render './stalkermode/users.jade', { rooms: rooms }
+app.get '/stalkermode/users', (req, res) -> res.render 'users.jade', { rooms: rooms }
 
 app.get '/stalkermode/cook', (req, res) ->
 	remote.cook(req, res)
@@ -814,11 +779,15 @@ app.get '/stalkermode/reports/:type', (req, res) ->
 	remote.Report.find {describe: req.params.type}, (err, docs) ->
 		res.render './stalkermode/reports.jade', { reports: docs, categories: remote.get_categories('qb') }
 
-app.get '/stalkermode/patriot', (req, res) -> res.render './stalkermode/dash.jade'
+app.get '/stalkermode/patriot', (req, res) -> res.render 'dash.jade'
+
+app.get '/stalkermode/archived', (req, res) -> 
+	remote.listArchived (list) ->
+		res.render 'archived.jade', { list, rooms }
 
 app.get '/stalkermode/:other', (req, res) -> res.redirect '/stalkermode'
 
-app.get '/401', (req, res) -> res.render './stalkermode/auth.jade', {}
+app.get '/401', (req, res) -> res.render 'auth.jade', {}
 
 app.post '/401', (req, res) -> remote.authenticate(req, res)
 
@@ -872,16 +841,17 @@ app.post '/auth/link', (req, res, next) ->
 		res.end 'fail' if !user
 		req.login user, (err) ->
 
-			User.update({"email":user.email}, {$addToSet : {"idlist":req.body.id}}).exec()
+			rooms[req.body.room].merge_user(req.body.id, sha1(user.email))
 
-			for id in user.idlist
-				event_query = Event.findOne {"userid":id}
-				get_events event_query, (events) ->
-					if events
-						for e in events
-							User.update({"email":user.email}, { $addToSet : {"events":e}}).exec()
-					else
-						console.log("no events")
+			# User.update({"email":user.email}, {$addToSet : {"idlist":req.body.id}}).exec()
+
+			event_query = Event.findOne {"userid":req.body.id}
+			get_events event_query, (events) ->
+				if events
+					for e in events
+						Event.update({"userid":sha1(user.email)}, { $addToSet : {"events":e}}).exec()
+				else
+					console.log("no events")
 						
 		res.end JSON.stringify(user)
 
