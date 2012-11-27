@@ -328,7 +328,7 @@ class SocketQuizRoom extends QuizRoom
 
 	get_question: (callback) ->
 		cb = (question) =>
-			log 'next', [@name, question.answer]
+			log 'next', [@name, question?.answer]
 			callback(question)
 		if @next_id and @show_bonus
 			remote.get_by_id @next_id, cb
@@ -369,7 +369,7 @@ class SocketQuizRoom extends QuizRoom
 		
 
 	deserialize: (data) ->
-		blacklist = ['users']
+		blacklist = ['users', 'attempt', 'generating_question']
 		for attr, val of data when attr not in blacklist
 			@[attr] = val
 		for user in data.users
@@ -398,6 +398,7 @@ class SocketQuizPlayer extends QuizPlayer
 	verb: (action, no_rate_limit) -> 
 		super(action, no_rate_limit)
 		log 'verb', [@room.name, @id + '-' + @name, action]
+		@room.journal()
 
 	online: -> @sockets.length > 0
 
@@ -547,15 +548,15 @@ io.sockets.on 'connection', (sock) ->
 			sock.emit 'application_update', +new Date # check for updates in case it was an update
 
 refresh_stale = ->
-	STALE_TIME = 1000 * 60 * 5 # five minutes?
+	STALE_TIME = 1000 * 60 * 4 # four minutes?
 	for name, room of rooms
-		if !room.archived or Date.now() - room.archived > STALE_TIME
+		if !room?.archived or Date.now() - room?.archived > STALE_TIME
 			# the room hasn't been archived in a few minutes
 			remote.archiveRoom? room
 			delete journal_queue[name]
 			return
 
-setInterval refresh_stale, 1000 * 20 # check 3x every minute
+setInterval refresh_stale, 1000 * 10 # check 3x every minute
 
 journal_queue = {}
 
@@ -564,39 +565,22 @@ process_queue = ->
 	min_time = Date.now()
 	min_room = null
 	for name, time of journal_queue
+		if !rooms[name]
+			delete journal_queue[name]
+			continue
+			
 		if time < min_time	
 			min_time = time
 			min_room = name
+		
+
 	if min_room
 		room = rooms[min_room]
-		if !room.archived or Date.now() - room.archived > 1000 * 10
+		if !room?.archived or Date.now() - room?.archived > 1000 * 10
 			remote.archiveRoom? room
 			delete journal_queue[min_room]
 
 setInterval process_queue, 1000	
-
-
-restore_journal = (callback) ->
-	journal_config.path = '/retrieve'
-	journal_config.method = 'GET'
-	req = http.request journal_config, (res) ->
-		res.setEncoding 'utf8'
-		packet = ''
-		res.on 'data', (chunk) ->
-			packet += chunk
-		res.on 'end', ->
-			console.log "Restoring Journal Contents #{packet.length} bytes"
-			json = JSON.parse(packet)
-			for name, data of json when !(name of rooms)
-				room = new SocketQuizRoom(name) 
-				rooms[name] = room
-				room.deserialize data
-			console.log 'restored journal'
-			callback() if callback
-	req.on 'error', ->
-		console.log "Journal inaccessible."
-		callback() if callback
-	req.end()
 
 
 clearInactive = ->
@@ -721,7 +705,34 @@ app.get '/stalkermode/logout', (req, res) ->
 
 app.get '/stalkermode/user/:room/:user', (req, res) ->
 	u = rooms?[req.params.room]?.users?[req.params.user]
-	res.render './stalkermode/user.jade', { room: req.params.room, id: req.params.user, user: u, text: util.inspect(u)}
+	u2 = {}
+	u2[k] = v for k, v of u when k not in ['room'] and typeof v isnt 'function'
+	res.render 'user.jade', { room: req.params.room, id: req.params.user, user: u, text: util.inspect(u2)}
+
+
+app.get '/stalkermode/room/:room', (req, res) ->
+	u = rooms?[req.params.room]
+	u2 = {}
+	u2[k] = v for k, v of u when k not in ['users', 'timing', 'cumulative'] and typeof v isnt 'function'
+	res.render 'control.jade', { room: u, name: req.params.room, text: util.inspect(u2)}
+
+
+app.post '/stalkermode/delete_room/:room', (req, res) ->
+	if rooms?[req.params.room]?.users
+		for id, u of rooms[req.params.room].users
+			for sock in u.sockets
+				io.sockets.socket(sock).disconnect()
+	rooms[req.params.room] = new SocketQuizRoom(req.params.room)
+	res.redirect "/stalkermode/room/#{req.params.room}"
+
+
+app.post '/stalkermode/disco_room/:room', (req, res) ->
+	if rooms?[req.params.room]?.users
+		for id, u of rooms[req.params.room].users
+			for sock in u.sockets
+				io.sockets.socket(sock).disconnect()
+	res.redirect "/stalkermode/room/#{req.params.room}"
+
 
 app.post '/stalkermode/emit/:room/:user', (req, res) ->
 	u = rooms?[req.params.room]?.users?[req.params.user]
@@ -879,6 +890,6 @@ app.get '/:type/:channel', (req, res) ->
 
 remote.initialize_remote()
 port = process.env.PORT || 5555
-restore_journal ->
-	server.listen port, ->
-		console.log "listening on port", port
+# restore_journal ->
+server.listen port, ->
+	console.log "listening on port", port

@@ -38,7 +38,7 @@ html(lang="en")
 				| #{Math.floor(secs % 60)} seconds
 
 			mixin display_user(user)
-				li #{user.team || ''}
+				li #{user.team || ''} 
 					if user.room && user.room.admins && user.room.admins.indexOf(user.id) != -1
 						i *ADMIN* 
 					b #{user.name} 
@@ -70,6 +70,9 @@ html(lang="en")
 					a(href="/#{room_name}") #{room_name}
 					| 
 					a(href="/#{room_name}?ninja") (ninja mode) 
+					| 
+					a(href="/stalkermode/room/#{room_name}") &rarr; 
+					| 
 					| #{Object.keys(room.users).length} users,
 					| #{count_online(room)} online
 					| #{count_active(room)} active

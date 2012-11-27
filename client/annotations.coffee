@@ -273,7 +273,7 @@ chatAnnotation = ({session, text, user, done, time}) ->
 				line.prepend '<i class="icon-user"></i> '
 			line.find('.comment').html html
 
-			if user of room.users and text.length > 140
+			if user of room.users and text.length > 70 or dirty_regex.exec(" #{text} ")
 				banButton user, line
 	else
 		if !$('.livechat')[0].checked or text is '(typing)'
@@ -395,3 +395,45 @@ boxxyAnnotation = ({id, tribunal}) ->
 			$(this).remove()
 		if id isnt me.id or votes.length > 1
 			addImportant line
+
+
+congressionalAnnotation = ({id, elect}) ->
+	{votes, time, witnesses, against} = elect
+	console.log id, elect
+	# majority + opposers - votes
+	votes_needed = Math.floor((witnesses.length - 1)/2 + 1) - votes.length + against.length
+
+	line = $('<div>').addClass('alert alert-info').addClass('elect-' + id)
+	if id is me.id # who would vote for their own banning?
+		line.html("You are a contestant in Protobowl's <i>Who Wants to be an Admin (for 60 seconds)</i>.\n")
+		line.append " <strong>#{votes.length} of #{witnesses.length-1} users have voted</strong> (#{votes_needed} more votes are needed to pass your referendum)"
+	else
+		line.append $("<strong>").append('Is ').append(userSpan(id)).append(' trustworthy? ')
+		# line.append 'Protobowl has detected high rates of activity coming from the user '
+		
+		line.append "A user has requested power to change settings. If you believe that the user is trustworthy, "
+		line.append userSpan(id)
+
+		line.append "will be granted one minute of control over the settings. You have one minute to cast your vote. <br> "
+		worthy = $('<button>').addClass('btn btn-small').text('Grant access')
+		line.append worthy
+		line.append ' '
+		not_worthy = $('<button>').addClass('btn btn-small').text("Deny")
+		line.append not_worthy
+		line.append " <strong> #{votes.length} of #{witnesses.length-1} users have voted</strong> (#{votes_needed} more votes are needed to grant access."
+		line.append userSpan(id)
+		line.append ")"
+		worthy.click ->
+			me.vote_election {user: id, position: 'elect'}
+		not_worthy.click ->
+			me.vote_election {user: id, position: 'impeach'}
+		
+		worthy.add(not_worthy).disable((me.id in votes) or (me.id in against))
+	
+	if $('.elect-'+id).length > 0 and $('.elect-'+id).parents('.active').length > 0
+		$('.elect-'+id).replaceWith line
+	else
+		$('.elect-'+id).slideUp 'normal', ->
+			$(this).remove()
+		
+		addImportant line
