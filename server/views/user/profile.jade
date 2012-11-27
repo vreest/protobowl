@@ -5,10 +5,25 @@ block title
 
 block content
 
-	h2 Hello #{user.username}
+	h2 Profile
+	hr
+	h3 Username: #{user.username}
+	br
+	h3 Email: #{user.email}
+	br
+	h3 Ninja:
+		if user.ninja == 0
+			|  No
+		else if user.ninja == 1
+			|  Ninja >><< PEWPEW
+		else if user.ninja == 2
+			| SUPER FUCKING NINJA PEW
+		else
+			| NO
 
-	h4 Your email is #{user.email} right?
-
+	br
+	h3 Gravatar:
+		img(src='http://gravatar.com/avatar/' + "#{user.email_hashed}")	
 	hr
 
 	blockquote

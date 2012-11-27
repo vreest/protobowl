@@ -3,27 +3,11 @@ extends ../layouts/normal-layout
 block title
 	title Home - ProtoBowl
 
-block content
+block precontainer
 	div.jumpotron.masthead
 		div.container
 			h1 Protobowl
-			p An Online Real Time Multiplayer QuizBowl Game
-			br
-			if user
-				a(href='/lobby').btn.btn-large.btn-primary Get Playin!
-			else
-				a(href='/signin').btn.btn-large.btn-primary Sign in
-			br
-			br
-			ul.masthead-links
-				li
-					a(href="/about") About
-				li
-					a(href="/help") Help
-				li
-					a(href="/contact") Contact
-				li
-					a(href="/feeback") Feedback
+			p Realtime Multiplayer Online QuizBowl
 
 	//- h3 Welcome to Protobowl
 	//- p If you want to learn more about the site or who made it checkout out our  
@@ -41,28 +25,29 @@ block content
 	//- 	a(href="mailto:info@protobowl.com")  
 	//- 		| info@protobowl.com
 
+block content
 
 	hr 
 
-	h3 Join a Pre-existing Room
+	h3 Join a Room
 
 	table.table
 		thead
 			tr
 				th Room Name
 				th Difficulty
-				th # in Room
+				th #
 		tbody
+			td
+				a(href="/lobby") lobby
+			td Any
+			td probably should do this
 
-	hr
 
-	h3 Create Your Own Room
 
-	input(type="text", placeholder="Name of your room")#room_name
-	br
-	input(type="password", placeholder="Password")#password
-	br
-	button.btn#make_room_button Make the Room
+	p this is one of thee components in a row
+
+	h3 Contact Us
 
 
 

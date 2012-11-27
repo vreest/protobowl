@@ -1,4 +1,4 @@
-/* protobowl_css_build_date: Mon Nov 26 2012 00:49:29 GMT-0500 (EST) */
+/* protobowl_css_build_date: Mon Nov 26 2012 23:32:23 GMT-0500 (EST) */
 /*!
  * Bootstrap v2.1.0
  *
@@ -7159,6 +7159,9 @@ a.badge:hover {
     overflow: visible !important;
   }
 }
+.navbar {
+  margin-bottom: 0px;
+}
 /* Sections
 -------------------------------------------------- */
 /* Faded out hr */
@@ -7253,8 +7256,10 @@ hr.soften {
 /* Masthead (docs home)
 ------------------------- */
 .masthead {
+  background: url(../img/mandel.jpg);
   padding: 70px 0 80px;
   text-align: center;
+  color: white;
   margin-bottom: 0;
 }
 .masthead h1 {

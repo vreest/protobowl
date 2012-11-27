@@ -145,8 +145,6 @@ if app.settings.env is 'development'
 	fs.watch "server/views/game/room.jade", watcher
 
 
-
-
 try 
 	remote = require './remote'
 catch err
@@ -157,6 +155,19 @@ if app.settings.env is 'production' and remote.deploy
 	journal_config = remote.deploy.journal
 	console.log 'set to deployment defaults'
 
+
+crypto = require 'crypto'
+
+# simple helper function that hashes things
+sha1 = (text) ->
+	hash = crypto.createHash('sha1')
+	hash.update(text)
+	hash.digest('hex')
+
+md5 = (text) ->
+	hash = crypto.createHash('md5')
+	hash.update(text)
+	hash.digest("hex");
 
 mongoose = require('mongoose')
 db = mongoose.createConnection 'localhost', 'protobowluser_db'
@@ -169,8 +180,9 @@ db.on 'open', (err) ->
 
 user_schema = new mongoose.Schema {
 	email: String,
+	email_hashed: String,
 	username: String,
-	ninja: Boolean
+	ninja: Number
 }
 
 User = db.model 'User', user_schema
@@ -237,7 +249,12 @@ passport.use 'browserid', new BrowserID {audience: 'localhost:5555'},
 			if theData
 				done null, theData
 			else
-				newUser = new User({'email':email, 'username':'randomusername', 'ninja':0, 'cumsum':0, 'idlist': [], 'events':[]})
+				newUser = new User      'email':email,
+										'email_hashed':md5(email), 
+										'username':'randomusername',
+										'ninja':0,
+									    'cumsum':0
+								   
 				newUser.save (err) ->
 					console.log(err)
 
@@ -252,14 +269,6 @@ app.use express.static('static')
 app.use express.favicon('static/img/favicon.ico')
 app.use passport.initialize()
 app.use passport.session()
-
-crypto = require 'crypto'
-
-# simple helper function that hashes things
-sha1 = (text) ->
-	hash = crypto.createHash('sha1')
-	hash.update(text)
-	hash.digest('hex')
 
 # inject the cookies into the session... yo
 app.use (req, res, next) ->
@@ -842,8 +851,6 @@ app.post '/auth/link', (req, res, next) ->
 		req.login user, (err) ->
 
 			rooms[req.body.room].merge_user(req.body.id, sha1(user.email))
-
-			# User.update({"email":user.email}, {$addToSet : {"idlist":req.body.id}}).exec()
 
 			event_query = Event.findOne {"userid":req.body.id}
 			get_events event_query, (events) ->
