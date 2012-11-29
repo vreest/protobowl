@@ -125,7 +125,7 @@ guessAnnotation = ({session, text, user, done, correct, interrupt, early, prompt
 	if $('#' + id).length > 0
 		line = $('#' + id)
 	else
-		line = $('<p>').attr('id', id)
+		line = $('<p>').attr('id', id).addClass('guess')
 		if prompt
 			prompt_el = $('<a>').addClass('label prompt label-info').text('Prompt')
 			line.append ' '
@@ -142,7 +142,7 @@ guessAnnotation = ({session, text, user, done, correct, interrupt, early, prompt
 		
 
 		line.append " "
-		line.append userSpan(user).addClass('author')
+		line.append userSpan(user) #.addClass('author')
 		line.append document.createTextNode ' '
 		$('<span>')
 			.addClass('comment')
@@ -398,42 +398,65 @@ boxxyAnnotation = ({id, tribunal}) ->
 
 
 congressionalAnnotation = ({id, elect}) ->
-	{votes, time, witnesses, against} = elect
-	console.log id, elect
-	# majority + opposers - votes
-	votes_needed = Math.floor((witnesses.length - 1)/2 + 1) - votes.length + against.length
+	
 
 	line = $('<div>').addClass('alert alert-info').addClass('elect-' + id)
-	if id is me.id # who would vote for their own banning?
-		line.html("You are a contestant in Protobowl's <i>Who Wants to be an Admin (for 60 seconds)</i>.\n")
-		line.append " <strong>#{votes.length} of #{witnesses.length-1} users have voted</strong> (#{votes_needed} more votes are needed to pass your referendum)"
-	else
-		line.append $("<strong>").append('Is ').append(userSpan(id)).append(' trustworthy? ')
-		# line.append 'Protobowl has detected high rates of activity coming from the user '
-		
-		line.append "A user has requested power to change settings. If you believe that the user is trustworthy, "
-		line.append userSpan(id)
 
-		line.append "will be granted one minute of control over the settings. You have one minute to cast your vote. <br> "
-		worthy = $('<button>').addClass('btn btn-small').text('Grant access')
-		line.append worthy
-		line.append ' '
-		not_worthy = $('<button>').addClass('btn btn-small').text("Deny")
-		line.append not_worthy
-		line.append " <strong> #{votes.length} of #{witnesses.length-1} users have voted</strong> (#{votes_needed} more votes are needed to grant access."
-		line.append userSpan(id)
-		line.append ")"
-		worthy.click ->
-			me.vote_election {user: id, position: 'elect'}
-		not_worthy.click ->
-			me.vote_election {user: id, position: 'impeach'}
-		
-		worthy.add(not_worthy).disable((me.id in votes) or (me.id in against))
+	if elect.term
+		{witnesses, impeach} = elect
+		votes_needed = Math.floor((witnesses.length - 1)/2 + 1) - impeach.length
+
+		if room.serverTime() > elect.term
+			$('.elect-'+id).slideUp 'normal', ->
+				$(this).remove()
+			return
+		if id is me.id
+			line.html("You have access to the settings for <b>the next 60 seconds</b>. \n")
+			finish = $('<button>').addClass('btn btn-small').text('Done')
+			finish.click ->
+				me.finish_term()
+			line.append finish
+
+		else
+			# line.append $("<strong>").append('Impeach ').append(userSpan(id)).append('? ')
+			# line.append "You have the option to impeach your elected officials. <br>"
+			impeacher = $('<button>').addClass('btn btn-small').text("Impeach")
+			impeacher.click ->
+				me.vote_election {user: id, position: 'impeach'}
+			
+			line.append impeacher.disable(me.id in impeach)
+
+			line.append " <strong> #{impeach.length} of #{witnesses.length-1} users have voted to impeach </strong>"
+			line.append userSpan(id).css('font-weight', 'bold')
+			line.append " (#{votes_needed} more votes needed)"
+
+	else
+		{votes, time, witnesses, against} = elect
+		votes_needed = Math.floor((witnesses.length - 1)/2 + 1) - votes.length + against.length
+		if id is me.id # who would vote for their own banning?
+			line.html("You are a contestant in Protobowl's <i>Who Wants to be an Admin (for 60 seconds)</i>.\n")
+			line.append " <strong>#{votes.length} of #{witnesses.length-1} users have voted</strong> (#{votes_needed} more votes are needed to pass your referendum)"
+		else
+			line.append $("<strong>").append('Is ').append(userSpan(id)).append(' trustworthy? ')
+			
+			line.append "A user has requested power to change settings. Grant access if you believe the motives of "
+			line.append userSpan(id)
+			line.append " are pure. Elected terms are 1 minute. <br>"
+			# line.append "will be granted one minute of control over the settings. You have one minute to cast your vote. <br> "
+			worthy = $('<button>').addClass('btn btn-small').text('Grant access')
+			line.append worthy
+			line.append ' '
+			not_worthy = $('<button>').addClass('btn btn-small').text("Deny")
+			line.append not_worthy
+			line.append " <strong> #{votes.length} of #{witnesses.length-1} users have voted</strong> (#{votes_needed} more votes needed)"
+			worthy.click ->
+				me.vote_election {user: id, position: 'elect'}
+			not_worthy.click ->
+				me.vote_election {user: id, position: 'deny'}
+			
+			worthy.add(not_worthy).disable((me.id in votes) or (me.id in against))
 	
-	if $('.elect-'+id).length > 0 and $('.elect-'+id).parents('.active').length > 0
+	if $('.elect-'+id).length > 0
 		$('.elect-'+id).replaceWith line
 	else
-		$('.elect-'+id).slideUp 'normal', ->
-			$(this).remove()
-		
-		addImportant line
+		addAnnotation line

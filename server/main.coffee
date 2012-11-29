@@ -1,14 +1,24 @@
 console.log 'hello from protobowl v3', __dirname, process.cwd()
 
+try 
+	remote = require './remote'
+catch err
+	remote = require './local'
+
 express = require 'express'
 fs = require 'fs'
 http = require 'http'
 url = require 'url'
+util = require 'util'
 
 passport = require 'passport'
 BrowserID = require('passport-browserid').Strategy
 
 parseCookie = require('express/node_modules/cookie').parse
+
+mongoose = require 'mongoose'
+crypto = require 'crypto'
+
 rooms = {}
 {QuizRoom} = require '../shared/room'
 {QuizPlayer} = require '../shared/player'
@@ -136,25 +146,17 @@ if app.settings.env is 'development'
 			console.log "changed file", filename
 			scheduledUpdate = setTimeout updateCache, 500
 
-	updateCache()
-	
 	fs.watch "shared", watcher
 	fs.watch "client", watcher
 	fs.watch "static/less", watcher
 	fs.watch "server/views/game/room.jade", watcher
-
-
-try 
-	remote = require './remote'
-catch err
-	remote = require './local'
 
 if app.settings.env is 'production' and remote.deploy
 	log_config = remote.deploy.log
 	journal_config = remote.deploy.journal
 	console.log 'set to deployment defaults'
 
-mongoose = require('mongoose')
+## -------------------------- User Database ---------------------- ##
 db = mongoose.createConnection 'localhost', 'protobowluser_db'
 
 db.on 'error', (err) ->
@@ -171,10 +173,11 @@ user_schema = new mongoose.Schema {
 
 User = db.model 'User', user_schema
 users = User.collection
-users.ensureIndex { id: 1, email: 1, username: 1, ninja:1, events: 1 }
+users.ensureIndex { id: 1, email: 1, username: 1, ninja:1 }
 
 
-db = mongoose.createConnection 'localhost', 'protobowlevents_db'
+## ------------------------- Stats Database ----------------------- ## 
+db = mongoose.createConnection 'localhost', 'protobowlstats_db'
 
 db.on 'error', (err) ->
 	console.log 'Database Error', err
@@ -182,18 +185,20 @@ db.on 'error', (err) ->
 db.on 'open', (err) ->
 	console.log 'opened database', err
 
-event_schema = new mongoose.Schema {
+stat_schema = new mongoose.Schema {
 	userid: String,
 	hashed: Boolean,
-	questions_seen: Number,
+	interrupts: Number,
+	correct: Number,
+	seen: Number,
 	time_spent: Number, 
-	buzzs: Array
 }
 
-Event = db.model 'Event', event_schema
-events = Event.collection
+Stat = db.model 'Stat', stat_schema
+Stats = Stat.collection
 
 
+## ------------------- Database Helper Functions -------------------- ##
 authenticate_data = (email, callback) ->
 	query = User.findOne {"email":email}
 
@@ -207,26 +212,20 @@ execute_query = (query, callback) ->
 	query.exec (err, data) ->
 		callback(data)
 
-add_event = (userid, eventObj) ->
-	query = Event.findOne {"userid":userid}
+update_stats = (room_name) ->
+	# Check to make sure they are online - update seen +1 
 
-	execute_query query, (data) ->
-		if data
-			Event.update({"userid":userid}, { $push : {"events": eventObj}}).exec()
-		else
-			newEvents = new Event({"userid":userid, "events":[eventObj]})
-			newEvents.save (err) ->
-				console.log(err)
+update_buzzers_stats = (userid, guesses, interrupts, correct, time_spent) ->
+	# Update that users stats, yo
 
-			
-# Passport Serialize and Deserialize Functions
+
+## ----------------------- User Auth Code --------------------------- ##
 passport.serializeUser (user, done) ->
 	done null, user
 
 passport.deserializeUser (user, done) ->
 	done null, user
 
-# Passport-BrowserID Strategy
 passport.use 'browserid', new BrowserID {audience: 'localhost:5555'},
 	(email, done) ->
 		authenticate_data email, (theData) ->
@@ -243,6 +242,8 @@ passport.use 'browserid', new BrowserID {audience: 'localhost:5555'},
 				done null, newUser
 
 
+
+## ----------------------- Express Config --------------------------- ##
 app.use express.compress()
 app.use express.cookieParser()
 app.use express.bodyParser()
@@ -252,9 +253,7 @@ app.use express.favicon('static/img/favicon.ico')
 app.use passport.initialize()
 app.use passport.session()
 
-crypto = require 'crypto'
-
-# simple helper function that hashes things
+# simple helper functions that hashes things
 sha1 = (text) ->
 	hash = crypto.createHash('sha1')
 	hash.update(text)
@@ -314,7 +313,7 @@ log 'server_restart', {}
 
 public_room_list = ['hsquizbowl', 'lobby']
 
-
+## ----------------------- SocketQuizRoom Class --------------------------- ##
 class SocketQuizRoom extends QuizRoom
 	emit: (name, data) ->
 		io.sockets.in(@name).emit name, data
@@ -324,6 +323,7 @@ class SocketQuizRoom extends QuizRoom
 	get_question: (callback) ->
 		cb = (question) =>
 			log 'next', [@name, question?.answer]
+			update_stats(@name)
 			callback(question)
 		if @next_id and @show_bonus
 			remote.get_by_id @next_id, cb
@@ -343,17 +343,16 @@ class SocketQuizRoom extends QuizRoom
 		if @attempt?.user
 			ruling = @check_answer @attempt.text, @answer, @question
 			log 'buzz', [@name, @attempt.user + '-' + @users[@attempt.user].name, @attempt.text, @answer, ruling]
-			# Okay so here I'm going to use @users[@attempt.user] to update the event log for the user
-			# The attributes I need are 
-			# @users[@attempt.user].guesses
-			# @users[@attempt.user].interrupts
-			# @users[@attempt.user].correct
-			# @users[@attempt.user].seen --> For every user, every buzz
-			# @users[@attempt.user].time_spent
-			# I'm going to update the event log of the user every time a buzz occurs. 
-			# While some statistics will be lost, I don't think it will really matter
-			# ya know, statistically speaking.
-			console.log(@users)
+
+			update_buzzers_stats	@users[@attempt.user], 
+									@users[@attempt.user].guesses, 
+									@users[@attempt.user].interrupts, 
+									@users[@attempt.user].correct,
+									@users[@attempt.user].time_spent
+								
+
+			# # Possibly add a way to see the distribution of different categories / difficulties
+
 		super(session)
 
 	merge_user: (id, new_id) ->
@@ -383,6 +382,7 @@ class SocketQuizRoom extends QuizRoom
 			@users[user.id] = u
 			u.deserialize(user)
 
+## ----------------------- SocketQuizPlayer Class --------------------------- ##
 class SocketQuizPlayer extends QuizPlayer
 	constructor: (room, id) ->
 		super(room, id)
@@ -521,7 +521,7 @@ io.sockets.on 'connection', (sock) ->
 		if is_ninja
 			publicID = "__secret_ninja_#{Math.random().toFixed(4).slice(2)}" 
 			if 'id' of config.query
-				publicID = ("0000000000000000000000000000000000000000" + config.query.id).slice(-40)
+				publicID = (config.query.id + "0000000000000000000000000000000000000000").slice(0, 40)
 				is_ninja = false
 		
 
@@ -529,8 +529,20 @@ io.sockets.on 'connection', (sock) ->
 		existing_user = (publicID of room.users)
 		unless room.users[publicID]
 			room.users[publicID] = new SocketQuizPlayer(room, publicID) 
+			user = room.users[publicID]
+
 			if room_name in public_room_list
-				room.users[publicID].lock = (Math.random() < 0.6) # set defaults on big public rooms to lock
+				# public rooms default to locked, like cars in the city
+				user.lock = true
+			else
+				if room.active_count() <= 1
+					# small room, hey wai not right?
+					user.lock = true
+				else if room.locked()
+					user.lock = true
+				else
+					# probablistic systems work for lots of things
+					user.lock = (Math.random() > 0.5)
 
 		user = room.users[publicID]
 		if room.serverTime() < user.banned
@@ -554,13 +566,14 @@ io.sockets.on 'connection', (sock) ->
 			sock.emit 'application_update', +new Date # check for updates in case it was an update
 
 refresh_stale = ->
-	STALE_TIME = 1000 * 60 * 4 # four minutes?
+	STALE_TIME = 1000 * 60 * 2 # four minutes?
 	for name, room of rooms
-		if !room?.archived or Date.now() - room?.archived > STALE_TIME
+		continue if !room
+		if !room.archived or Date.now() - room.archived > STALE_TIME
 			# the room hasn't been archived in a few minutes
 			remote.archiveRoom? room
 			delete journal_queue[name]
-			return
+			
 
 setInterval refresh_stale, 1000 * 10 # check 3x every minute
 
@@ -676,9 +689,7 @@ if remote.archiveRoom
 	# do it every ten seconds like a bonobo
 	setInterval swapInactive, 1000 * 10 
 
-
-util = require('util')
-
+## -------------------------- Routing --------------------------- ##
 app.post '/stalkermode/kickoffline', (req, res) ->
 	clearInactive 1000 * 5 # five seconds
 	res.redirect '/stalkermode'
@@ -692,7 +703,6 @@ app.post '/stalkermode/announce', (req, res) ->
 		time: +new Date
 	}
 	res.redirect '/stalkermode'
-
 
 app.post '/stalkermode/algore', (req, res) ->
 	remote.initialize_remote (time, layers) ->
@@ -708,20 +718,17 @@ app.get '/stalkermode/logout', (req, res) ->
 	res.clearCookie 'protoauth'
 	res.redirect '/stalkermode'
 
-
 app.get '/stalkermode/user/:room/:user', (req, res) ->
 	u = rooms?[req.params.room]?.users?[req.params.user]
 	u2 = {}
 	u2[k] = v for k, v of u when k not in ['room'] and typeof v isnt 'function'
 	res.render 'user.jade', { room: req.params.room, id: req.params.user, user: u, text: util.inspect(u2)}
 
-
 app.get '/stalkermode/room/:room', (req, res) ->
 	u = rooms?[req.params.room]
 	u2 = {}
 	u2[k] = v for k, v of u when k not in ['users', 'timing', 'cumulative'] and typeof v isnt 'function'
 	res.render 'control.jade', { room: u, name: req.params.room, text: util.inspect(u2)}
-
 
 app.post '/stalkermode/delete_room/:room', (req, res) ->
 	if rooms?[req.params.room]?.users
@@ -731,14 +738,12 @@ app.post '/stalkermode/delete_room/:room', (req, res) ->
 	rooms[req.params.room] = new SocketQuizRoom(req.params.room)
 	res.redirect "/stalkermode/room/#{req.params.room}"
 
-
 app.post '/stalkermode/disco_room/:room', (req, res) ->
 	if rooms?[req.params.room]?.users
 		for id, u of rooms[req.params.room].users
 			for sock in u.sockets
 				io.sockets.socket(sock).disconnect()
 	res.redirect "/stalkermode/room/#{req.params.room}"
-
 
 app.post '/stalkermode/emit/:room/:user', (req, res) ->
 	u = rooms?[req.params.room]?.users?[req.params.user]
@@ -819,7 +824,6 @@ app.post '/401', (req, res) -> remote.authenticate(req, res)
 
 app.get '/new', (req, res) -> res.redirect '/' + names.generatePage()
 
-
 ensureAuthenticated = (req, res, next) ->
 	return next() if req.isAuthenticated()
 	res.redirect '/signin'
@@ -849,17 +853,7 @@ app.get '/logout', (req, res) ->
 	res.redirect(req.params.return || '/')
 
 app.post '/auth/browserid', passport.authenticate('browserid', { failureRedirect: '/login' }), (req, res) ->
-	res.redirect('/');
-
-get_events = (query, callback) ->	
-	events = new Array()
-
-	execute_query query, (data) ->
-		if data
-			events = data.events
-			callback(events)
-		else
-			callback(null)
+	res.redirect('/')
 
 app.post '/auth/link', (req, res, next) ->
 	passport.authenticate('browserid', (err, user, info) ->
@@ -869,14 +863,6 @@ app.post '/auth/link', (req, res, next) ->
 
 			rooms[req.body.room].merge_user(req.body.id, sha1(user.email))
 
-			event_query = Event.findOne {"userid":req.body.id}
-			get_events event_query, (events) ->
-				if events
-					for e in events
-						Event.update({"userid":sha1(user.email)}, { $addToSet : {"events":e}}).exec()
-				else
-					console.log("no events")
-						
 		res.end JSON.stringify(user)
 
 	)(req, res, next)
@@ -896,6 +882,5 @@ app.get '/:type/:channel', (req, res) ->
 
 remote.initialize_remote()
 port = process.env.PORT || 5555
-# restore_journal ->
 server.listen port, ->
 	console.log "listening on port", port

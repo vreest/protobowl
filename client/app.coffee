@@ -97,7 +97,10 @@ load_bookmarked_questions = ->
 		bundle.find('.readout').hide()
 		$('#history').prepend bundle
 
-
+# stress test da servs
+# setTimeout ->
+# 	location.href = "/#{Math.random().toString().slice(3)}"
+# , 1000
 
 connected = -> sock? and sock.socket.connected
 
@@ -132,7 +135,7 @@ class QuizPlayerSlave extends QuizPlayerClient
 		# functions starting with get_ are treated as local-exec, but I dont feel like
 		# propagating a breaking change 
 
-		blacklist = ['envelop_action', 'score', 'online', 'active']
+		blacklist = ['envelop_action', 'score', 'online', 'active', 'authorized']
 		@envelop_action name for name, method of this when typeof method is 'function' and name not in blacklist
 
 

@@ -57,6 +57,11 @@ class QuizPlayer
 
 	online: -> true
 
+	authorized: ->
+		return true unless @room.locked()
+		return @id[0] == '_' or @id in @room.admins or @elect?.term > @room.serverTime()
+
+
 	score: ->
 		CORRECT = 10
 		EARLY = 15
@@ -96,7 +101,7 @@ class QuizPlayer
 
 	nominate: ->
 		if !@elect
-			@verb "TERMPOEWJROSIJWER THIS PERSON IS A NARCONARC"
+			# @verb "TERMPOEWJROSIJWER THIS PERSON IS A NARCONARC"
 			current_time = @room.serverTime()
 			witnesses = (id for id, user of @room.users when id[0] isnt "_" and user.active())
 			@__elect_timeout = setTimeout =>
@@ -127,7 +132,7 @@ class QuizPlayer
 				@room.sync(1)
 			, 1000 * 60
 
-			@tribunal = { votes: [], against: [], time: current_time, witnesses }
+			@tribunal = { votes: [], against: [], time: current_time, witnesses, term: 0 }
 			
 			@room.sync(1)
 
@@ -145,36 +150,89 @@ class QuizPlayer
 			@room.users[user]?.ban(1000 * 60 * 5)
 
 	vote_election: ({user, position}) ->
+		@touch()
 		elect = @room.users[user]?.elect
-		if elect
+		return if !elect
+
+		if !elect.term
 			{votes, against, witnesses} = elect
 			return unless @id in witnesses
  			return if @id in votes or @id in against
 			if position is 'elect'
 				votes.push @id
-				@verb 'voted to ban !@' + user
-			else if position is 'impeach'
+				# @verb 'voted to elect !@' + user
+			else if position is 'deny'
 				against.push @id
-				@verb 'voted to free !@' + user
+				# @verb 'voted to impeach !@' + user
 			else
-				@verb 'voted with a hanging chad'
+				@verb 'voted from a diebold machine'
+
 			if votes.length > (witnesses.length - 1) / 2 + against.length
-				@room.users[user].verb 'gots the blanc haus', true
-				clearTimeout @room.users[user].__elect_timeout
-				@room.users[user].elect = null
-				# @room.users[user].verb "was banned from #{@room.name}", true
-				# @room.users[user].ban()
+				# @room.users[user].verb 'gots the blanc haus', true
+				
+				term_length = 1000 * 60
+
+				# there is a new species in new york; it can be aggressive if threatened
+				witnesses = (id for id, u of @room.users when id[0] isnt "_" and u.active())
+
+				@room.users[user].elect = { impeach: [], witnesses, term: @room.serverTime() + term_length }
+
+				# let's go to the mall!
+				@room.users[user].inaugurate()
 
 			undecided = (witnesses.length - against.length - votes.length - 1)
 			if votes.length + undecided <= (witnesses.length - 1) / 2 + against.length
-				@room.users[user].verb 'was impeached bya  bill clinton', true
-				@room.users[user].elect = null
-				clearTimeout @room.users[user].__tribunal_timeout
-
+				@room.users[user].verb 'was not elected', true
+				@room.users[user].impeach()
 
 			@room.sync(1)
+		else if elect.term > @room.serverTime()
+			{impeach, witnesses} = elect
+			return unless @id in witnesses
+			return if @id in impeach
+			if position is 'impeach'
+				impeach.push @id
+				# @verb 'hates bill clinton'
+				votes_needed = Math.floor((witnesses.length - 1)/2 + 1) - impeach.length
+				if votes_needed <= 0
+					@room.users[user].verb 'was impeached from office', true
+					@room.users[user].impeach()
+				else
+					@room.sync 1
+
+	# Come on Jessica, come on Tori,
+	# Let's go to the mall, you won't be sorry
+	# Put on your jelly bracelets
+	# And your cool graffiti coat
+	# At the mall, having fun is what it's all about
+
+	inaugurate: ->
+		return if !@elect?.term # this should be enough
+
+		# must be quasi-protected method because we dont want to defeat the purpose
+		# of having a convoluted system of bureaucracy!
+		clearTimeout @__elect_timeout
+
+		@__elect_timeout = setTimeout =>
+			if @authorized()
+				@verb 'is no longer commander in chief', true
+				@impeach()
+		, @elect.term - @room.serverTime()
 
 
+	impeach: ->
+		@elect = null
+		clearTimeout @__elect_timeout
+		@room.sync(1)
+
+	# also, that reference *did* actually make sense
+	# As in, inaugurations take place on the national mall.
+
+	finish_term: ->
+		return if !@elect?.term # this should be enough		
+		@verb 'has finished tenure in office', true
+		@elect = null
+		@room.sync(1)
 
 	vote_tribunal: ({user, position}) ->
 		
@@ -306,7 +364,12 @@ class QuizPlayer
 			@room.unfreeze()
 		@room.sync()
 
-	set_idle: (val) ->  @idle = !!val
+	set_idle: (val) ->  
+		# old_lock = @room.locked()
+		@idle = !!val
+		# lets update people if it affects their interests
+		# if @room.locked() != old_lock
+		# 	@room.sync 1
 
 	set_lock: (val) ->
 		@lock = !!val
@@ -325,6 +388,7 @@ class QuizPlayer
 
 	set_distribution: (data) ->
 		@touch()
+		return unless @authorized()
 		return unless data
 		enabled = []
 		disabled = []
@@ -345,6 +409,7 @@ class QuizPlayer
 
 	set_difficulty: (data) ->
 		@touch()
+		return unless @authorized()
 		# @verb 'is doing something with difficulty'
 		@room.difficulty = data
 		@room.sync()
@@ -353,6 +418,7 @@ class QuizPlayer
 
 	set_category: (data) ->
 		@touch()
+		return unless @authorized()
 		# @verb 'changed the category to something which needs to be changed'
 		@room.category = data
 		@room.reset_distribution() unless data # reset to the default question distribution 
@@ -364,6 +430,8 @@ class QuizPlayer
 				@verb "set category to #{data.toLowerCase() || 'potpourri'} (#{size} questions)"
 		
 	set_max_buzz: (data) ->
+		@touch()
+		return unless @authorized()
 		if @room.max_buzz isnt data
 			if !data
 				@verb 'allowed players to buzz multiple times'
@@ -372,12 +440,12 @@ class QuizPlayer
 			else if data > 1
 				@verb "restricted players and teams to #{data} buzzes per question"
 		@room.max_buzz = data
-		@touch()
 		@room.sync()
 
 	set_speed: (speed) ->
-		return if speed <= 0
 		@touch()
+		return unless @authorized()
+		return if speed <= 0
 		@room.set_speed speed
 		@room.sync()
 
@@ -390,6 +458,7 @@ class QuizPlayer
 		@room.sync(1)
 
 	set_type: (name) ->
+		return unless @authorized()
 		@touch()
 		if name
 			@room.type = name
@@ -415,6 +484,7 @@ class QuizPlayer
 		@room.sync(1)
 
 	set_skip: (data) ->
+		return unless @authorized()
 		@room.no_skip = !data
 		@room.sync(1)
 		if @room.no_skip
@@ -423,6 +493,7 @@ class QuizPlayer
 			@verb 'enabled question skipping'
 
 	set_bonus: (data) ->
+		return unless @authorized()
 		@room.show_bonus = data
 		if @room.show_bonus
 			@verb 'enabled showing bonus questions'
@@ -468,8 +539,5 @@ class QuizPlayer
 		blacklist = ['tribunal', 'elect']
 		this[attr] = val for attr, val of obj when attr[0] != '_' and attr not in blacklist
 
-	testing_delete_me_later: (new_id) ->
-		@room.merge_user(@id, new_id)
-		
 
 exports.QuizPlayer = QuizPlayer if exports?
