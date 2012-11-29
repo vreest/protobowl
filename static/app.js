@@ -1,4 +1,4 @@
-protobowl_app_build = 'Mon Nov 26 2012 23:32:23 GMT-0500 (EST)';
+protobowl_app_build = 'Tue Nov 27 2012 18:15:59 GMT-0500 (EST)';
 /* Modernizr 2.6.1 (Custom Build) | MIT & BSD
  * Build: http://modernizr.com/download/#-touch-teststyles-prefixes
  */
@@ -2111,6 +2111,10 @@ clone_shallow = function(obj) {
   return new_obj;
 };
 
+RegExp.quote = function(str) {
+  return (str + '').replace(/([.?*+^$[\]\\(){}|-])/g, "\\$1");
+};
+
 jQuery.fn.disable = function(value) {
   return $(this).each(function() {
     var current;
@@ -2213,7 +2217,7 @@ setTimeout(function() {
   return $(window).resize();
 }, 6022);
 
-var addAnnotation, addImportant, banButton, boxxyAnnotation, chatAnnotation, createAlert, guessAnnotation, logAnnotation, notifyTrolls, userSpan, verbAnnotation,
+var addAnnotation, addImportant, banButton, boxxyAnnotation, chatAnnotation, congressionalAnnotation, createAlert, guessAnnotation, logAnnotation, notifyTrolls, userSpan, verbAnnotation,
   __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
 
 createAlert = function(bundle, title, message) {
@@ -2484,7 +2488,7 @@ chatAnnotation = function(_arg) {
         line.prepend('<i class="icon-user"></i> ');
       }
       line.find('.comment').html(html);
-      if (user in room.users && text.length > 140) {
+      if (user in room.users && text.length > 70 || dirty_regex.exec(" " + text + " ")) {
         banButton(user, line);
       }
     }
@@ -2602,6 +2606,53 @@ boxxyAnnotation = function(_arg) {
     if (id !== me.id || votes.length > 1) {
       return addImportant(line);
     }
+  }
+};
+
+congressionalAnnotation = function(_arg) {
+  var against, elect, id, line, not_worthy, time, votes, votes_needed, witnesses, worthy, _ref, _ref1;
+  id = _arg.id, elect = _arg.elect;
+  votes = elect.votes, time = elect.time, witnesses = elect.witnesses, against = elect.against;
+  console.log(id, elect);
+  votes_needed = Math.floor((witnesses.length - 1) / 2 + 1) - votes.length + against.length;
+  line = $('<div>').addClass('alert alert-info').addClass('elect-' + id);
+  if (id === me.id) {
+    line.html("You are a contestant in Protobowl's <i>Who Wants to be an Admin (for 60 seconds)</i>.\n");
+    line.append(" <strong>" + votes.length + " of " + (witnesses.length - 1) + " users have voted</strong> (" + votes_needed + " more votes are needed to pass your referendum)");
+  } else {
+    line.append($("<strong>").append('Is ').append(userSpan(id)).append(' trustworthy? '));
+    line.append("A user has requested power to change settings. If you believe that the user is trustworthy, ");
+    line.append(userSpan(id));
+    line.append("will be granted one minute of control over the settings. You have one minute to cast your vote. <br> ");
+    worthy = $('<button>').addClass('btn btn-small').text('Grant access');
+    line.append(worthy);
+    line.append(' ');
+    not_worthy = $('<button>').addClass('btn btn-small').text("Deny");
+    line.append(not_worthy);
+    line.append(" <strong> " + votes.length + " of " + (witnesses.length - 1) + " users have voted</strong> (" + votes_needed + " more votes are needed to grant access.");
+    line.append(userSpan(id));
+    line.append(")");
+    worthy.click(function() {
+      return me.vote_election({
+        user: id,
+        position: 'elect'
+      });
+    });
+    not_worthy.click(function() {
+      return me.vote_election({
+        user: id,
+        position: 'impeach'
+      });
+    });
+    worthy.add(not_worthy).disable((_ref = me.id, __indexOf.call(votes, _ref) >= 0) || (_ref1 = me.id, __indexOf.call(against, _ref1) >= 0));
+  }
+  if ($('.elect-' + id).length > 0 && $('.elect-' + id).parents('.active').length > 0) {
+    return $('.elect-' + id).replaceWith(line);
+  } else {
+    $('.elect-' + id).slideUp('normal', function() {
+      return $(this).remove();
+    });
+    return addImportant(line);
   }
 };
 
@@ -3108,6 +3159,10 @@ $('.lock').change(function() {
   return me.set_lock($('.lock')[0].checked);
 });
 
+$('.request-access').click(function() {
+  return me.nominate();
+});
+
 $('.movingwindow').change(function() {
   if ($('.movingwindow')[0].checked) {
     return me.set_movingwindow(20);
@@ -3584,6 +3639,13 @@ renderUsers = function() {
       $('.troll-' + user.id).slideUp('normal', function() {
         return $(this).remove();
       });
+      if (user.elect) {
+        congressionalAnnotation(user);
+      } else {
+        $('.elect-' + user.id).slideUp('normal', function() {
+          return $(this).remove();
+        });
+      }
     }
   }
   lock_votes = 0;
@@ -3602,7 +3664,8 @@ renderUsers = function() {
   }
   if (lock_electorate <= 2) {
     $('.lockvote').slideUp();
-    $('.globalsettings .checkbox, .globalsettings .expando').css('opacity', '1').find('select, input').disable(false);
+    $('.globalsettings').removeClass('locked');
+    $('.globalsettings .checkbox, .globalsettings .expando').find('select, input').disable(false);
   } else {
     $('.lockvote').slideDown();
     needed = Math.floor(lock_electorate / 2 + 1);
@@ -3614,10 +3677,12 @@ renderUsers = function() {
     $('.lockvote .status_icon').removeClass('icon-lock icon-unlock');
     if (lock_votes >= needed) {
       $('.lockvote .status_icon').addClass('icon-lock');
-      $('.globalsettings .checkbox, .globalsettings .expando').css('opacity', '0.5').find('select, input').disable(true);
+      $('.globalsettings').addClass('locked');
+      $('.globalsettings .checkbox, .globalsettings .expando').find('select, input').disable(true);
     } else {
       $('.lockvote .status_icon').addClass('icon-unlock');
-      $('.globalsettings .checkbox, .globalsettings .expando').css('opacity', '1').find('select, input').disable(false);
+      $('.globalsettings').removeClass('locked');
+      $('.globalsettings .checkbox, .globalsettings .expando').find('select, input').disable(false);
     }
   }
   if ($('.teams').data('teamhash') !== team_hash) {
@@ -4340,7 +4405,7 @@ QuizPlayer = (function() {
     this.lock = false;
     this.movingwindow = false;
     this.tribunal = null;
-    this.__timeout = null;
+    this.elect = null;
     this.__recent_actions = [];
   }
 
@@ -4354,7 +4419,8 @@ QuizPlayer = (function() {
         this.time_spent += elapsed;
       }
     }
-    return this.last_action = current_time;
+    this.last_action = current_time;
+    return this.room.check_timeout();
   };
 
   QuizPlayer.prototype.active = function() {
@@ -4378,7 +4444,11 @@ QuizPlayer = (function() {
       duration = 1000 * 60 * 10;
     }
     this.banned = this.room.serverTime() + duration;
-    return this.emit('redirect', "/" + this.room.name + "-banned");
+    if (this.room.name === 'lobby') {
+      return this.emit('redirect', "/b");
+    } else {
+      return this.emit('redirect', "/" + this.room.name + "-banned");
+    }
   };
 
   QuizPlayer.prototype.emit = function(name, data) {
@@ -4431,6 +4501,39 @@ QuizPlayer = (function() {
     }
   };
 
+  QuizPlayer.prototype.nominate = function() {
+    var current_time, id, user, witnesses,
+      _this = this;
+    if (!this.elect) {
+      this.verb("TERMPOEWJROSIJWER THIS PERSON IS A NARCONARC");
+      current_time = this.room.serverTime();
+      witnesses = (function() {
+        var _ref, _results;
+        _ref = this.room.users;
+        _results = [];
+        for (id in _ref) {
+          user = _ref[id];
+          if (id[0] !== "_" && user.active()) {
+            _results.push(id);
+          }
+        }
+        return _results;
+      }).call(this);
+      this.__elect_timeout = setTimeout(function() {
+        _this.verb('got romneyed', true);
+        _this.elect = null;
+        return _this.room.sync(1);
+      }, 1000 * 60);
+      this.elect = {
+        votes: [],
+        against: [],
+        time: current_time,
+        witnesses: witnesses
+      };
+      return this.room.sync(1);
+    }
+  };
+
   QuizPlayer.prototype.create_tribunal = function() {
     var current_time, id, user, witnesses,
       _this = this;
@@ -4448,7 +4551,7 @@ QuizPlayer = (function() {
         }
         return _results;
       }).call(this);
-      this.__timeout = setTimeout(function() {
+      this.__tribunal_timeout = setTimeout(function() {
         _this.verb('survived the tribunal', true);
         _this.tribunal = null;
         return _this.room.sync(1);
@@ -4481,6 +4584,41 @@ QuizPlayer = (function() {
     }
   };
 
+  QuizPlayer.prototype.vote_election = function(_arg) {
+    var against, elect, position, undecided, user, votes, witnesses, _ref, _ref1, _ref2, _ref3;
+    user = _arg.user, position = _arg.position;
+    elect = (_ref = this.room.users[user]) != null ? _ref.elect : void 0;
+    if (elect) {
+      votes = elect.votes, against = elect.against, witnesses = elect.witnesses;
+      if (_ref1 = this.id, __indexOf.call(witnesses, _ref1) < 0) {
+        if ((_ref2 = this.id, __indexOf.call(votes, _ref2) >= 0) || (_ref3 = this.id, __indexOf.call(against, _ref3) >= 0)) {
+
+        }
+      }
+      if (position === 'elect') {
+        votes.push(this.id);
+        this.verb('voted to ban !@' + user);
+      } else if (position === 'impeach') {
+        against.push(this.id);
+        this.verb('voted to free !@' + user);
+      } else {
+        this.verb('voted with a hanging chad');
+      }
+      if (votes.length > (witnesses.length - 1) / 2 + against.length) {
+        this.room.users[user].verb('gots the blanc haus', true);
+        clearTimeout(this.room.users[user].__elect_timeout);
+        this.room.users[user].elect = null;
+      }
+      undecided = witnesses.length - against.length - votes.length - 1;
+      if (votes.length + undecided <= (witnesses.length - 1) / 2 + against.length) {
+        this.room.users[user].verb('was impeached bya  bill clinton', true);
+        this.room.users[user].elect = null;
+        clearTimeout(this.room.users[user].__tribunal_timeout);
+      }
+      return this.room.sync(1);
+    }
+  };
+
   QuizPlayer.prototype.vote_tribunal = function(_arg) {
     var against, position, tribunal, undecided, user, votes, witnesses, _ref, _ref1, _ref2, _ref3;
     user = _arg.user, position = _arg.position;
@@ -4503,7 +4641,7 @@ QuizPlayer = (function() {
       }
       if (votes.length > (witnesses.length - 1) / 2 + against.length) {
         this.room.users[user].verb('got voted off the island', true);
-        clearTimeout(this.room.users[user].__timeout);
+        clearTimeout(this.room.users[user].__tribunal_timeout);
         this.room.users[user].tribunal = null;
         this.room.users[user].ban();
       }
@@ -4511,7 +4649,7 @@ QuizPlayer = (function() {
       if (votes.length + undecided <= (witnesses.length - 1) / 2 + against.length) {
         this.room.users[user].verb('was freed because of a hung jury', true);
         this.room.users[user].tribunal = null;
-        clearTimeout(this.room.users[user].__timeout);
+        clearTimeout(this.room.users[user].__tribunal_timeout);
       }
       return this.room.sync(1);
     }
@@ -4552,12 +4690,14 @@ QuizPlayer = (function() {
   };
 
   QuizPlayer.prototype.buzz = function(data, fn) {
+    this.touch();
     if ((this.room.qid === data || data === 'yay') && this.room.buzz(this.id, fn)) {
       return this.rate_limit();
     }
   };
 
   QuizPlayer.prototype.guess = function(data) {
+    this.touch();
     return this.room.guess(this.id, data);
   };
 
@@ -4727,7 +4867,7 @@ QuizPlayer = (function() {
   };
 
   QuizPlayer.prototype.set_speed = function(speed) {
-    if (!speed) {
+    if (speed <= 0) {
       return;
     }
     this.touch();
@@ -4747,6 +4887,7 @@ QuizPlayer = (function() {
 
   QuizPlayer.prototype.set_type = function(name) {
     var _this = this;
+    this.touch();
     if (name) {
       this.room.type = name;
       this.room.category = '';
@@ -4858,11 +4999,12 @@ QuizPlayer = (function() {
   };
 
   QuizPlayer.prototype.deserialize = function(obj) {
-    var attr, val, _results;
+    var attr, blacklist, val, _results;
+    blacklist = ['tribunal', 'elect'];
     _results = [];
     for (attr in obj) {
       val = obj[attr];
-      if (attr[0] !== '_') {
+      if (attr[0] !== '_' && __indexOf.call(blacklist, attr) < 0) {
         _results.push(this[attr] = val);
       }
     }
@@ -4929,6 +5071,7 @@ QuizRoom = (function() {
     this.sync_offset = 0;
     this.start_offset = 0;
     this.end_time = 0;
+    this.begin_time = 0;
     this.question = '';
     this.answer = '';
     this.timing = [];
@@ -4942,6 +5085,7 @@ QuizRoom = (function() {
     this.difficulty = '';
     this.category = '';
     this.max_buzz = null;
+    this.attempt = null;
     this.no_skip = false;
     this.show_bonus = false;
   }
@@ -5038,9 +5182,18 @@ QuizRoom = (function() {
     return clearTimeout(this.__timeout);
   };
 
+  QuizRoom.prototype.check_timeout = function() {
+    if (this.attempt) {
+      if (this.serverTime() > this.attempt.realTime + this.attempt.duration) {
+        this.clear_timeout();
+        return this.end_buzz(this.attempt.session);
+      }
+    }
+  };
+
   QuizRoom.prototype.new_question = function() {
     var _this = this;
-    this.generating_question = true;
+    this.generating_question = this.serverTime();
     return this.get_question(function(question) {
       var id, syllables, user, word, _ref, _ref1;
       if (!question || !question.question || !question.answer) {
@@ -5073,7 +5226,7 @@ QuizRoom = (function() {
         _results = [];
         for (_i = 0, _len = _ref1.length; _i < _len; _i++) {
           word = _ref1[_i];
-          _results.push(syllables(word) + 1);
+          _results.push((+syllables(word) || 0) + 1);
         }
         return _results;
       }).call(_this);
@@ -5123,7 +5276,13 @@ QuizRoom = (function() {
     this.cumulative = cumsum(this.timing, this.rate);
     new_duration = this.cumulative[this.cumulative.length - 1];
     this.begin_time = now - new_duration * done - remainder;
-    return this.end_time = this.begin_time + new_duration + this.answer_duration;
+    this.end_time = this.begin_time + new_duration + this.answer_duration;
+    if (isNaN(this.begin_time)) {
+      this.begin_time = 0;
+    }
+    if (isNaN(this.end_time)) {
+      return this.end_time = 0;
+    }
   };
 
   QuizRoom.prototype.finish = function() {
@@ -5131,7 +5290,11 @@ QuizRoom = (function() {
   };
 
   QuizRoom.prototype.next = function() {
-    if (this.time() >= this.end_time && !this.generating_question && !this.attempt) {
+    if (this.generating_question && this.serverTime() - this.generating_question < 1000) {
+      delete this.generating_question;
+      return;
+    }
+    if (this.time() >= this.end_time && !this.attempt) {
       this.unfreeze();
       return this.new_question();
     }
@@ -5240,7 +5403,7 @@ QuizRoom = (function() {
       if (fn) {
         fn('THE BUZZES ARE TOO DAMN HIGH');
       }
-      if (this.attempt === null) {
+      if (!this.attempt) {
         this.emit('log', {
           user: user,
           verb: 'has already buzzed'
@@ -5254,7 +5417,7 @@ QuizRoom = (function() {
         user: user,
         verb: 'is in a team which has already buzzed'
       });
-    } else if (this.attempt === null && this.time() <= this.end_time) {
+    } else if (!this.attempt && this.time() <= this.end_time) {
       if (fn) {
         fn('http://www.whosawesome.com/');
       }
@@ -5320,7 +5483,7 @@ QuizRoom = (function() {
     data = {
       real_time: this.serverTime()
     };
-    blacklist = ["question", "answer", "generated_time", "timing", "voting", "info", "cumulative", "users", "generating_question", "distribution", "sync_offset"];
+    blacklist = ["question", "answer", "generated_time", "timing", "voting", "info", "cumulative", "users", "distribution", "sync_offset", "generating_question"];
     user_blacklist = ["sockets", "room"];
     for (attr in this) {
       if (typeof this[attr] !== 'function' && __indexOf.call(blacklist, attr) < 0 && attr[0] !== "_") {
@@ -5374,7 +5537,7 @@ QuizRoom = (function() {
   QuizRoom.prototype.serialize = function() {
     var attr, blacklist, data, id, user, _ref;
     data = {};
-    blacklist = ['users'];
+    blacklist = ['users', 'attempt'];
     for (attr in this) {
       if (__indexOf.call(blacklist, attr) < 0 && ((_ref = typeof this[attr]) !== 'function') && attr[0] !== '_') {
         data[attr] = this[attr];

@@ -21,7 +21,6 @@ app = express()
 server = http.createServer(app)
 
 app.set 'views', "server/views" # directory where the jade files are
-# app.set 'view options', layout: false
 app.set 'trust proxy', true
 
 
@@ -155,20 +154,6 @@ if app.settings.env is 'production' and remote.deploy
 	journal_config = remote.deploy.journal
 	console.log 'set to deployment defaults'
 
-
-crypto = require 'crypto'
-
-# simple helper function that hashes things
-sha1 = (text) ->
-	hash = crypto.createHash('sha1')
-	hash.update(text)
-	hash.digest('hex')
-
-md5 = (text) ->
-	hash = crypto.createHash('md5')
-	hash.update(text)
-	hash.digest("hex");
-
 mongoose = require('mongoose')
 db = mongoose.createConnection 'localhost', 'protobowluser_db'
 
@@ -180,7 +165,6 @@ db.on 'open', (err) ->
 
 user_schema = new mongoose.Schema {
 	email: String,
-	email_hashed: String,
 	username: String,
 	ninja: Number
 }
@@ -250,10 +234,8 @@ passport.use 'browserid', new BrowserID {audience: 'localhost:5555'},
 				done null, theData
 			else
 				newUser = new User      'email':email,
-										'email_hashed':md5(email), 
 										'username':'randomusername',
 										'ninja':0,
-									    'cumsum':0
 								   
 				newUser.save (err) ->
 					console.log(err)
@@ -269,6 +251,19 @@ app.use express.static('static')
 app.use express.favicon('static/img/favicon.ico')
 app.use passport.initialize()
 app.use passport.session()
+
+crypto = require 'crypto'
+
+# simple helper function that hashes things
+sha1 = (text) ->
+	hash = crypto.createHash('sha1')
+	hash.update(text)
+	hash.digest('hex')
+
+md5 = (text) ->
+	hash = crypto.createHash('md5')
+	hash.update(text)
+	hash.digest("hex")
 
 # inject the cookies into the session... yo
 app.use (req, res, next) ->
@@ -348,6 +343,17 @@ class SocketQuizRoom extends QuizRoom
 		if @attempt?.user
 			ruling = @check_answer @attempt.text, @answer, @question
 			log 'buzz', [@name, @attempt.user + '-' + @users[@attempt.user].name, @attempt.text, @answer, ruling]
+			# Okay so here I'm going to use @users[@attempt.user] to update the event log for the user
+			# The attributes I need are 
+			# @users[@attempt.user].guesses
+			# @users[@attempt.user].interrupts
+			# @users[@attempt.user].correct
+			# @users[@attempt.user].seen --> For every user, every buzz
+			# @users[@attempt.user].time_spent
+			# I'm going to update the event log of the user every time a buzz occurs. 
+			# While some statistics will be lost, I don't think it will really matter
+			# ya know, statistically speaking.
+			console.log(@users)
 		super(session)
 
 	merge_user: (id, new_id) ->
@@ -484,7 +490,7 @@ load_room = (name, callback) ->
 io.sockets.on 'connection', (sock) ->
 	headers = sock.handshake.headers
 	return sock.disconnect() unless headers.referer and headers.cookie
-	config = url.parse(headers.referer)
+	config = url.parse(headers.referer, true)
 	
 	if config.host isnt 'protobowl.com' and app.settings.env isnt 'development' and config.protocol is 'http:'
 		config.host = 'protobowl.com'
@@ -500,8 +506,8 @@ io.sockets.on 'connection', (sock) ->
 	cookie = parseCookie(headers.cookie)
 	return sock.disconnect() unless cookie.protocookie and config.pathname
 	# set the config stuff
-	is_god = /god/.test config.search
-	is_ninja = /ninja/.test config.search
+	
+	is_ninja = 'ninja' of config.query
 	# configger the things which are derived from said parsed stuff
 	room_name = config.pathname.replace(/^\/*/g, '').toLowerCase()
 	question_type = (if room_name.split('/').length is 2 then room_name.split('/')[0] else 'qb')
@@ -512,9 +518,11 @@ io.sockets.on 'connection', (sock) ->
 			room.type = question_type
 
 		publicID = sha1(cookie.protocookie + room_name)
-
-		publicID = "__secret_ninja_#{Math.random().toFixed(4).slice(2)}" if is_ninja
-		publicID += "_god" if is_god
+		if is_ninja
+			publicID = "__secret_ninja_#{Math.random().toFixed(4).slice(2)}" 
+			if 'id' of config.query
+				publicID = ("0000000000000000000000000000000000000000" + config.query.id).slice(-40)
+				is_ninja = false
 		
 
 		# get the user's identity
@@ -534,8 +542,6 @@ io.sockets.on 'connection', (sock) ->
 		sock.join room_name
 		
 		user.add_socket sock
-		if is_god
-			sock.join name for name of rooms
 
 		sock.emit 'joined', { id: user.id, name: user.name, existing: existing_user }
 		
@@ -823,7 +829,7 @@ app.get '/signin', (req, res) ->
 	res.render './info/signin.jade', {user:req.user}
 
 app.get '/user/profile', ensureAuthenticated, (req, res) -> 
-	res.render './user/profile.jade', {user:req.user}
+	res.render './user/profile.jade', {user:req.user, hashed_email:md5(req.user.email)}
 
 app.get '/user/stats', ensureAuthenticated,  (req, res) -> 
 	res.render './user/stats.jade', {user:req.user}
