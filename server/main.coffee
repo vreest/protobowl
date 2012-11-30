@@ -1,4 +1,4 @@
-console.log 'hello from protobowl v3', __dirname, process.cwd()
+console.log 'hello from protobowl v4', __dirname, process.cwd()
 
 try 
 	remote = require './remote'
@@ -33,7 +33,6 @@ server = http.createServer(app)
 app.set 'views', "server/views" # directory where the jade files are
 app.set 'trust proxy', true
 
-
 io = require('socket.io').listen(server)
 
 io.configure 'production', ->
@@ -46,11 +45,8 @@ io.configure 'development', ->
 	io.set "browser client minification", true
 	io.set "browser client gzip", true
 
-
-
 journal_config = { host: 'localhost', port: 15865 }
 log_config = { host: 'localhost', port: 18228 }
-
 
 if app.settings.env is 'development'
 	less = require 'less'
@@ -156,14 +152,22 @@ if app.settings.env is 'production' and remote.deploy
 	journal_config = remote.deploy.journal
 	console.log 'set to deployment defaults'
 
+## Database connection helper function
+
+connect_database = (host, db_name) ->
+	db = mongoose.createConnection(host, db_name)
+
+	db.on 'error', (err) ->
+		console.log db_name + " Database Error", err
+
+	db.on 'open', (err) ->
+		console.log "Opened Database " + db_name
+
+	# SO SYNCRONUZ YO
+	return db
+
 ## -------------------------- User Database ---------------------- ##
-db = mongoose.createConnection 'localhost', 'protobowluser_db'
-
-db.on 'error', (err) ->
-	console.log 'Database Error', err
-
-db.on 'open', (err) ->
-	console.log 'opened database', err
+usersDB = connect_database 'localhost', 'proto_users_db'
 
 user_schema = new mongoose.Schema {
 	email: String,
@@ -171,19 +175,13 @@ user_schema = new mongoose.Schema {
 	ninja: Number
 }
 
-User = db.model 'User', user_schema
+User = usersDB.model 'User', user_schema
 users = User.collection
 users.ensureIndex { id: 1, email: 1, username: 1, ninja:1 }
 
 
 ## ------------------------- Stats Database ----------------------- ## 
-db = mongoose.createConnection 'localhost', 'protobowlstats_db'
-
-db.on 'error', (err) ->
-	console.log 'Database Error', err
-
-db.on 'open', (err) ->
-	console.log 'opened database', err
+statsDB = connect_database 'localhost', 'proto_stats_db'
 
 stat_schema = new mongoose.Schema {
 	userid: String,
@@ -191,11 +189,24 @@ stat_schema = new mongoose.Schema {
 	interrupts: Number,
 	correct: Number,
 	seen: Number,
-	time_spent: Number, 
+	time_spent: Number
 }
 
-Stat = db.model 'Stat', stat_schema
+Stat = statsDB.model 'Stat', stat_schema
 Stats = Stat.collection
+
+## ------------------------- Stats Database ----------------------- ## 
+feedbacksDB = connect_database 'localhost', 'proto_feedbacks_db'
+
+feedback_schema = new mongoose.Schema {
+	name: String,
+	email: String,
+	feedback: String
+}
+
+Feedback = feedbacksDB.model 'Feedback', feedback_schema
+Feedbacks = Feedback.collection
+
 
 
 ## ------------------- Database Helper Functions -------------------- ##
@@ -232,10 +243,11 @@ passport.use 'browserid', new BrowserID {audience: 'localhost:5555'},
 			if theData
 				done null, theData
 			else
-				newUser = new User      'email':email,
+				newUser = new User({    
+										'email':email,
 										'username':'randomusername',
 										'ninja':0,
-								   
+								   })
 				newUser.save (err) ->
 					console.log(err)
 
@@ -838,7 +850,6 @@ app.get '/user/profile', ensureAuthenticated, (req, res) ->
 app.get '/user/stats', ensureAuthenticated,  (req, res) -> 
 	res.render './user/stats.jade', {user:req.user}
 
-
 app.get '/', (req, res) -> 
 	res.render './info/home.jade', {user:req.user}
 
@@ -847,6 +858,12 @@ app.get '/about', (req, res) ->
 
 app.get '/feedback', (req, res) ->
 	res.render './info/feedback.jade', {user:req.user}
+
+app.post '/force-feedback', (req, res) ->
+	# store the feedback in a database
+	# Flash a success on redirect -- flashs?
+	# name, email, feedback are the fields
+	res.redirect '/'
 
 app.get '/logout', (req, res) ->
 	req.session.destroy()

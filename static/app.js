@@ -1,4 +1,4 @@
-protobowl_app_build = 'Tue Nov 27 2012 18:15:59 GMT-0500 (EST)';
+protobowl_app_build = 'Thu Nov 29 2012 23:19:28 GMT-0500 (EST)';
 /* Modernizr 2.6.1 (Custom Build) | MIT & BSD
  * Build: http://modernizr.com/download/#-touch-teststyles-prefixes
  */
@@ -2344,7 +2344,7 @@ guessAnnotation = function(_arg) {
   if ($('#' + id).length > 0) {
     line = $('#' + id);
   } else {
-    line = $('<p>').attr('id', id);
+    line = $('<p>').attr('id', id).addClass('guess');
     if (prompt) {
       prompt_el = $('<a>').addClass('label prompt label-info').text('Prompt');
       line.append(' ');
@@ -2361,7 +2361,7 @@ guessAnnotation = function(_arg) {
       line.append(marker);
     }
     line.append(" ");
-    line.append(userSpan(user).addClass('author'));
+    line.append(userSpan(user));
     line.append(document.createTextNode(' '));
     $('<span>').addClass('comment').appendTo(line);
     ruling = $('<a>').addClass('label ruling').hide().attr('href', '#').attr('title', 'Click to Report').data('placement', 'right');
@@ -2610,49 +2610,74 @@ boxxyAnnotation = function(_arg) {
 };
 
 congressionalAnnotation = function(_arg) {
-  var against, elect, id, line, not_worthy, time, votes, votes_needed, witnesses, worthy, _ref, _ref1;
+  var against, elect, finish, id, impeach, impeacher, line, not_worthy, time, votes, votes_needed, witnesses, worthy, _ref, _ref1, _ref2;
   id = _arg.id, elect = _arg.elect;
-  votes = elect.votes, time = elect.time, witnesses = elect.witnesses, against = elect.against;
-  console.log(id, elect);
-  votes_needed = Math.floor((witnesses.length - 1) / 2 + 1) - votes.length + against.length;
   line = $('<div>').addClass('alert alert-info').addClass('elect-' + id);
-  if (id === me.id) {
-    line.html("You are a contestant in Protobowl's <i>Who Wants to be an Admin (for 60 seconds)</i>.\n");
-    line.append(" <strong>" + votes.length + " of " + (witnesses.length - 1) + " users have voted</strong> (" + votes_needed + " more votes are needed to pass your referendum)");
+  if (elect.term) {
+    witnesses = elect.witnesses, impeach = elect.impeach;
+    votes_needed = Math.floor((witnesses.length - 1) / 2 + 1) - impeach.length;
+    if (room.serverTime() > elect.term) {
+      $('.elect-' + id).slideUp('normal', function() {
+        return $(this).remove();
+      });
+      return;
+    }
+    if (id === me.id) {
+      line.html("You have access to the settings for <b>the next 60 seconds</b>. \n");
+      finish = $('<button>').addClass('btn btn-small').text('Done');
+      finish.click(function() {
+        return me.finish_term();
+      });
+      line.append(finish);
+    } else {
+      impeacher = $('<button>').addClass('btn btn-small').text("Impeach");
+      impeacher.click(function() {
+        return me.vote_election({
+          user: id,
+          position: 'impeach'
+        });
+      });
+      line.append(impeacher.disable((_ref = me.id, __indexOf.call(impeach, _ref) >= 0)));
+      line.append(" <strong> " + impeach.length + " of " + (witnesses.length - 1) + " users have voted to impeach </strong>");
+      line.append(userSpan(id).css('font-weight', 'bold'));
+      line.append(" (" + votes_needed + " more votes needed)");
+    }
   } else {
-    line.append($("<strong>").append('Is ').append(userSpan(id)).append(' trustworthy? '));
-    line.append("A user has requested power to change settings. If you believe that the user is trustworthy, ");
-    line.append(userSpan(id));
-    line.append("will be granted one minute of control over the settings. You have one minute to cast your vote. <br> ");
-    worthy = $('<button>').addClass('btn btn-small').text('Grant access');
-    line.append(worthy);
-    line.append(' ');
-    not_worthy = $('<button>').addClass('btn btn-small').text("Deny");
-    line.append(not_worthy);
-    line.append(" <strong> " + votes.length + " of " + (witnesses.length - 1) + " users have voted</strong> (" + votes_needed + " more votes are needed to grant access.");
-    line.append(userSpan(id));
-    line.append(")");
-    worthy.click(function() {
-      return me.vote_election({
-        user: id,
-        position: 'elect'
+    votes = elect.votes, time = elect.time, witnesses = elect.witnesses, against = elect.against;
+    votes_needed = Math.floor((witnesses.length - 1) / 2 + 1) - votes.length + against.length;
+    if (id === me.id) {
+      line.html("You are a contestant in Protobowl's <i>Who Wants to be an Admin (for 60 seconds)</i>.\n");
+      line.append(" <strong>" + votes.length + " of " + (witnesses.length - 1) + " users have voted</strong> (" + votes_needed + " more votes are needed to pass your referendum)");
+    } else {
+      line.append($("<strong>").append('Is ').append(userSpan(id)).append(' trustworthy? '));
+      line.append("A user has requested power to change settings. Grant access if you believe the motives of ");
+      line.append(userSpan(id));
+      line.append(" are pure. Elected terms are 1 minute. <br>");
+      worthy = $('<button>').addClass('btn btn-small').text('Grant access');
+      line.append(worthy);
+      line.append(' ');
+      not_worthy = $('<button>').addClass('btn btn-small').text("Deny");
+      line.append(not_worthy);
+      line.append(" <strong> " + votes.length + " of " + (witnesses.length - 1) + " users have voted</strong> (" + votes_needed + " more votes needed)");
+      worthy.click(function() {
+        return me.vote_election({
+          user: id,
+          position: 'elect'
+        });
       });
-    });
-    not_worthy.click(function() {
-      return me.vote_election({
-        user: id,
-        position: 'impeach'
+      not_worthy.click(function() {
+        return me.vote_election({
+          user: id,
+          position: 'deny'
+        });
       });
-    });
-    worthy.add(not_worthy).disable((_ref = me.id, __indexOf.call(votes, _ref) >= 0) || (_ref1 = me.id, __indexOf.call(against, _ref1) >= 0));
+      worthy.add(not_worthy).disable((_ref1 = me.id, __indexOf.call(votes, _ref1) >= 0) || (_ref2 = me.id, __indexOf.call(against, _ref2) >= 0));
+    }
   }
-  if ($('.elect-' + id).length > 0 && $('.elect-' + id).parents('.active').length > 0) {
+  if ($('.elect-' + id).length > 0) {
     return $('.elect-' + id).replaceWith(line);
   } else {
-    $('.elect-' + id).slideUp('normal', function() {
-      return $(this).remove();
-    });
-    return addImportant(line);
+    return addAnnotation(line);
   }
 };
 
@@ -3253,7 +3278,7 @@ if (Modernizr.touch) {
   $('.show-touch').hide();
 }
 
-var changeQuestion, check_alone, createBundle, createStatSheet, createTeamStatSheet, createUserStatSheet, create_bundle, create_report_form, get_score, last_rendering, reader_children, reader_last_state, renderParameters, renderPartial, renderTimer, renderUpdate, renderUsers, render_categories, toggle_bookmark, updateInlineSymbols, updateTextPosition,
+var changeQuestion, check_alone, createBundle, createStatSheet, createTeamStatSheet, createUserStatSheet, create_bundle, create_report_form, get_score, last_rendering, reader_children, reader_last_state, renderParameters, renderPartial, renderTimer, renderUpdate, renderUsers, render_categories, render_lock, toggle_bookmark, updateInlineSymbols, updateTextPosition,
   __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
 
 render_categories = function() {
@@ -3593,8 +3618,59 @@ get_score = function(user) {
   }
 };
 
+render_lock = function() {
+  var id, is_locked, lock_electorate, lock_votes, needed, user, _ref;
+  lock_votes = 0;
+  lock_electorate = 0;
+  is_locked = false;
+  _ref = room.users;
+  for (id in _ref) {
+    user = _ref[id];
+    if (user.active()) {
+      if (user.active()) {
+        lock_electorate++;
+        if (user.lock) {
+          lock_votes++;
+        }
+      }
+    }
+  }
+  needed = Math.floor(lock_electorate / 2 + 1);
+  if (lock_electorate <= 2) {
+    $('.lockvote').slideUp();
+    is_locked = false;
+  } else {
+    $('.lockvote').slideDown();
+    if (lock_votes < needed) {
+      $('.lockvote .electorate').text("" + (needed - lock_votes) + " needed");
+    } else {
+      $('.lockvote .electorate').text("" + lock_votes + "/" + lock_electorate + " votes");
+    }
+    if (lock_votes >= needed) {
+      is_locked = true;
+    }
+  }
+  $('.lockvote .status_icon').removeClass('icon-lock icon-unlock icon-flag');
+  $('.request-access button').disable(!!me.elect);
+  if (room.locked()) {
+    if (me.authorized()) {
+      $('.lockvote .status_icon').addClass('icon-flag');
+      $('.globalsettings').removeClass('locked');
+      return $('.globalsettings .checkbox, .globalsettings .expando').find('select, input').disable(false);
+    } else {
+      $('.lockvote .status_icon').addClass('icon-lock');
+      $('.globalsettings').addClass('locked');
+      return $('.globalsettings .checkbox, .globalsettings .expando').find('select, input').disable(true);
+    }
+  } else {
+    $('.lockvote .status_icon').addClass('icon-unlock');
+    $('.globalsettings').removeClass('locked');
+    return $('.globalsettings .checkbox, .globalsettings .expando').find('select, input').disable(false);
+  }
+};
+
 renderUsers = function() {
-  var active_count, attrs, badge, entities, get_weight, id, idle_count, ids, list, lock_electorate, lock_votes, member, members, name, name_map, needed, negs, num, ranking, row, sorted, team, team_count, team_hash, teams, u, user, user_count, user_index, _i, _j, _k, _l, _len, _len1, _len2, _ref, _ref1, _ref2, _ref3, _ref4, _ref5, _ref6, _ref7;
+  var active_count, attrs, badge, entities, get_weight, id, idle_count, ids, list, member, members, name, name_map, negs, num, ranking, row, sorted, team, team_count, team_hash, teams, u, user, user_count, user_index, _i, _j, _k, _l, _len, _len1, _len2, _ref, _ref1, _ref2, _ref3, _ref4, _ref5, _ref6;
   if (!room.users) {
     return;
   }
@@ -3648,43 +3724,7 @@ renderUsers = function() {
       }
     }
   }
-  lock_votes = 0;
-  lock_electorate = 0;
-  _ref3 = room.users;
-  for (id in _ref3) {
-    user = _ref3[id];
-    if (user.active()) {
-      if (user.active()) {
-        lock_electorate++;
-        if (user.lock) {
-          lock_votes++;
-        }
-      }
-    }
-  }
-  if (lock_electorate <= 2) {
-    $('.lockvote').slideUp();
-    $('.globalsettings').removeClass('locked');
-    $('.globalsettings .checkbox, .globalsettings .expando').find('select, input').disable(false);
-  } else {
-    $('.lockvote').slideDown();
-    needed = Math.floor(lock_electorate / 2 + 1);
-    if (lock_votes < needed) {
-      $('.lockvote .electorate').text("" + (needed - lock_votes) + " needed");
-    } else {
-      $('.lockvote .electorate').text("" + lock_votes + "/" + lock_electorate + " votes");
-    }
-    $('.lockvote .status_icon').removeClass('icon-lock icon-unlock');
-    if (lock_votes >= needed) {
-      $('.lockvote .status_icon').addClass('icon-lock');
-      $('.globalsettings').addClass('locked');
-      $('.globalsettings .checkbox, .globalsettings .expando').find('select, input').disable(true);
-    } else {
-      $('.lockvote .status_icon').addClass('icon-unlock');
-      $('.globalsettings').removeClass('locked');
-      $('.globalsettings .checkbox, .globalsettings .expando').find('select, input').disable(false);
-    }
-  }
+  render_lock();
   if ($('.teams').data('teamhash') !== team_hash) {
     $('.teams').data('teamhash', team_hash);
     $('.teams').empty();
@@ -3702,11 +3742,11 @@ renderUsers = function() {
   list = $('.leaderboard tbody');
   ranking = 1;
   entities = (function() {
-    var _ref4, _results;
-    _ref4 = room.users;
+    var _ref3, _results;
+    _ref3 = room.users;
     _results = [];
-    for (id in _ref4) {
-      user = _ref4[id];
+    for (id in _ref3) {
+      user = _ref3[id];
       _results.push(user);
     }
     return _results;
@@ -3734,11 +3774,11 @@ renderUsers = function() {
           return _results1;
         })();
         attrs.interrupts = Sum((function() {
-          var _j, _len, _ref4, _results1;
-          _ref4 = attrs.members;
+          var _j, _len, _ref3, _results1;
+          _ref3 = attrs.members;
           _results1 = [];
-          for (_j = 0, _len = _ref4.length; _j < _len; _j++) {
-            u = _ref4[_j];
+          for (_j = 0, _len = _ref3.length; _j < _len; _j++) {
+            u = _ref3[_j];
             _results1.push(u.interrupts);
           }
           return _results1;
@@ -3748,9 +3788,9 @@ renderUsers = function() {
       }
       return _results;
     })();
-    _ref4 = room.users;
-    for (id in _ref4) {
-      user = _ref4[id];
+    _ref3 = room.users;
+    for (id in _ref3) {
+      user = _ref3[id];
       if (!user.team) {
         entities.push(user);
       }
@@ -3760,11 +3800,11 @@ renderUsers = function() {
   get_weight = function(user) {
     return get_score(user) + (room.serverTime() - user.created) / 1e15;
   };
-  _ref5 = entities.sort(function(a, b) {
+  _ref4 = entities.sort(function(a, b) {
     return get_weight(b) - get_weight(a);
   });
-  for (user_index = _j = 0, _len = _ref5.length; _j < _len; user_index = ++_j) {
-    user = _ref5[user_index];
+  for (user_index = _j = 0, _len = _ref4.length; _j < _len; user_index = ++_j) {
+    user = _ref4[user_index];
     if (entities[user_index - 1] && get_score(user) < get_score(entities[user_index - 1])) {
       ranking++;
     }
@@ -3778,9 +3818,9 @@ renderUsers = function() {
     } else {
       idle_count = 0;
       active_count = 0;
-      _ref6 = user.members || [user];
-      for (_k = 0, _len1 = _ref6.length; _k < _len1; _k++) {
-        member = _ref6[_k];
+      _ref5 = user.members || [user];
+      for (_k = 0, _len1 = _ref5.length; _k < _len1; _k++) {
+        member = _ref5[_k];
         if (member.online()) {
           if (member.active()) {
             active_count++;
@@ -3802,11 +3842,11 @@ renderUsers = function() {
       name.append($('<span>').append(userSpan(user.id)));
     } else {
       name.append($('<span>').text(user.name).css('font-weight', 'bold')).append(" (" + user.members.length + ")");
-      _ref7 = user.members.sort(function(a, b) {
+      _ref6 = user.members.sort(function(a, b) {
         return get_weight(b) - get_weight(a);
       });
-      for (_l = 0, _len2 = _ref7.length; _l < _len2; _l++) {
-        user = _ref7[_l];
+      for (_l = 0, _len2 = _ref6.length; _l < _len2; _l++) {
+        user = _ref6[_l];
         row = $('<tr>').addClass('subordinate').data('entity', user).appendTo(list);
         row.click(function() {
           return 1;
@@ -4431,6 +4471,14 @@ QuizPlayer = (function() {
     return true;
   };
 
+  QuizPlayer.prototype.authorized = function() {
+    var _ref, _ref1;
+    if (!this.room.locked()) {
+      return true;
+    }
+    return this.id[0] === '_' || (_ref = this.id, __indexOf.call(this.room.admins, _ref) >= 0) || ((_ref1 = this.elect) != null ? _ref1.term : void 0) > this.room.serverTime();
+  };
+
   QuizPlayer.prototype.score = function() {
     var CORRECT, EARLY, INTERRUPT;
     CORRECT = 10;
@@ -4505,7 +4553,6 @@ QuizPlayer = (function() {
     var current_time, id, user, witnesses,
       _this = this;
     if (!this.elect) {
-      this.verb("TERMPOEWJROSIJWER THIS PERSON IS A NARCONARC");
       current_time = this.room.serverTime();
       witnesses = (function() {
         var _ref, _results;
@@ -4560,7 +4607,8 @@ QuizPlayer = (function() {
         votes: [],
         against: [],
         time: current_time,
-        witnesses: witnesses
+        witnesses: witnesses,
+        term: 0
       };
       return this.room.sync(1);
     }
@@ -4585,10 +4633,14 @@ QuizPlayer = (function() {
   };
 
   QuizPlayer.prototype.vote_election = function(_arg) {
-    var against, elect, position, undecided, user, votes, witnesses, _ref, _ref1, _ref2, _ref3;
+    var against, elect, id, impeach, position, term_length, u, undecided, user, votes, votes_needed, witnesses, _ref, _ref1, _ref2, _ref3, _ref4, _ref5;
     user = _arg.user, position = _arg.position;
+    this.touch();
     elect = (_ref = this.room.users[user]) != null ? _ref.elect : void 0;
-    if (elect) {
+    if (!elect) {
+      return;
+    }
+    if (!elect.term) {
       votes = elect.votes, against = elect.against, witnesses = elect.witnesses;
       if (_ref1 = this.id, __indexOf.call(witnesses, _ref1) < 0) {
         if ((_ref2 = this.id, __indexOf.call(votes, _ref2) >= 0) || (_ref3 = this.id, __indexOf.call(against, _ref3) >= 0)) {
@@ -4597,26 +4649,88 @@ QuizPlayer = (function() {
       }
       if (position === 'elect') {
         votes.push(this.id);
-        this.verb('voted to ban !@' + user);
-      } else if (position === 'impeach') {
+      } else if (position === 'deny') {
         against.push(this.id);
-        this.verb('voted to free !@' + user);
       } else {
-        this.verb('voted with a hanging chad');
+        this.verb('voted from a diebold machine');
       }
       if (votes.length > (witnesses.length - 1) / 2 + against.length) {
-        this.room.users[user].verb('gots the blanc haus', true);
-        clearTimeout(this.room.users[user].__elect_timeout);
-        this.room.users[user].elect = null;
+        term_length = 1000 * 60;
+        witnesses = (function() {
+          var _ref4, _results;
+          _ref4 = this.room.users;
+          _results = [];
+          for (id in _ref4) {
+            u = _ref4[id];
+            if (id[0] !== "_" && u.active()) {
+              _results.push(id);
+            }
+          }
+          return _results;
+        }).call(this);
+        this.room.users[user].elect = {
+          impeach: [],
+          witnesses: witnesses,
+          term: this.room.serverTime() + term_length
+        };
+        this.room.users[user].inaugurate();
       }
       undecided = witnesses.length - against.length - votes.length - 1;
       if (votes.length + undecided <= (witnesses.length - 1) / 2 + against.length) {
-        this.room.users[user].verb('was impeached bya  bill clinton', true);
-        this.room.users[user].elect = null;
-        clearTimeout(this.room.users[user].__tribunal_timeout);
+        this.room.users[user].verb('was not elected', true);
+        this.room.users[user].impeach();
       }
       return this.room.sync(1);
+    } else if (elect.term > this.room.serverTime()) {
+      impeach = elect.impeach, witnesses = elect.witnesses;
+      if (_ref4 = this.id, __indexOf.call(witnesses, _ref4) < 0) {
+        return;
+      }
+      if (_ref5 = this.id, __indexOf.call(impeach, _ref5) >= 0) {
+        return;
+      }
+      if (position === 'impeach') {
+        impeach.push(this.id);
+        votes_needed = Math.floor((witnesses.length - 1) / 2 + 1) - impeach.length;
+        if (votes_needed <= 0) {
+          this.room.users[user].verb('was impeached from office', true);
+          return this.room.users[user].impeach();
+        } else {
+          return this.room.sync(1);
+        }
+      }
     }
+  };
+
+  QuizPlayer.prototype.inaugurate = function() {
+    var _ref,
+      _this = this;
+    if (!((_ref = this.elect) != null ? _ref.term : void 0)) {
+      return;
+    }
+    clearTimeout(this.__elect_timeout);
+    return this.__elect_timeout = setTimeout(function() {
+      if (_this.authorized()) {
+        _this.verb('is no longer commander in chief', true);
+        return _this.impeach();
+      }
+    }, this.elect.term - this.room.serverTime());
+  };
+
+  QuizPlayer.prototype.impeach = function() {
+    this.elect = null;
+    clearTimeout(this.__elect_timeout);
+    return this.room.sync(1);
+  };
+
+  QuizPlayer.prototype.finish_term = function() {
+    var _ref;
+    if (!((_ref = this.elect) != null ? _ref.term : void 0)) {
+      return;
+    }
+    this.verb('has finished tenure in office', true);
+    this.elect = null;
+    return this.room.sync(1);
   };
 
   QuizPlayer.prototype.vote_tribunal = function(_arg) {
@@ -4798,6 +4912,9 @@ QuizPlayer = (function() {
     var cat, count, disabled, enabled,
       _this = this;
     this.touch();
+    if (!this.authorized()) {
+      return;
+    }
     if (!data) {
       return;
     }
@@ -4827,6 +4944,9 @@ QuizPlayer = (function() {
   QuizPlayer.prototype.set_difficulty = function(data) {
     var _this = this;
     this.touch();
+    if (!this.authorized()) {
+      return;
+    }
     this.room.difficulty = data;
     this.room.sync();
     return this.room.get_size(function(size) {
@@ -4837,6 +4957,9 @@ QuizPlayer = (function() {
   QuizPlayer.prototype.set_category = function(data) {
     var _this = this;
     this.touch();
+    if (!this.authorized()) {
+      return;
+    }
     this.room.category = data;
     if (!data) {
       this.room.reset_distribution();
@@ -4852,6 +4975,10 @@ QuizPlayer = (function() {
   };
 
   QuizPlayer.prototype.set_max_buzz = function(data) {
+    this.touch();
+    if (!this.authorized()) {
+      return;
+    }
     if (this.room.max_buzz !== data) {
       if (!data) {
         this.verb('allowed players to buzz multiple times');
@@ -4862,15 +4989,17 @@ QuizPlayer = (function() {
       }
     }
     this.room.max_buzz = data;
-    this.touch();
     return this.room.sync();
   };
 
   QuizPlayer.prototype.set_speed = function(speed) {
+    this.touch();
+    if (!this.authorized()) {
+      return;
+    }
     if (speed <= 0) {
       return;
     }
-    this.touch();
     this.room.set_speed(speed);
     return this.room.sync();
   };
@@ -4887,6 +5016,9 @@ QuizPlayer = (function() {
 
   QuizPlayer.prototype.set_type = function(name) {
     var _this = this;
+    if (!this.authorized()) {
+      return;
+    }
     this.touch();
     if (name) {
       this.room.type = name;
@@ -4919,6 +5051,9 @@ QuizPlayer = (function() {
   };
 
   QuizPlayer.prototype.set_skip = function(data) {
+    if (!this.authorized()) {
+      return;
+    }
     this.room.no_skip = !data;
     this.room.sync(1);
     if (this.room.no_skip) {
@@ -4929,6 +5064,9 @@ QuizPlayer = (function() {
   };
 
   QuizPlayer.prototype.set_bonus = function(data) {
+    if (!this.authorized()) {
+      return;
+    }
     this.room.show_bonus = data;
     if (this.room.show_bonus) {
       this.verb('enabled showing bonus questions');
@@ -5011,10 +5149,6 @@ QuizPlayer = (function() {
     return _results;
   };
 
-  QuizPlayer.prototype.testing_delete_me_later = function(new_id) {
-    return this.room.merge_user(this.id, new_id);
-  };
-
   return QuizPlayer;
 
 })();
@@ -5094,6 +5228,45 @@ QuizRoom = (function() {
     return this.emit('log', {
       verb: message
     });
+  };
+
+  QuizRoom.prototype.locked = function() {
+    var id, lock_electorate, lock_votes, needed, user, _ref;
+    lock_electorate = 0;
+    lock_votes = 0;
+    _ref = this.users;
+    for (id in _ref) {
+      user = _ref[id];
+      if (user.active()) {
+        if (user.active()) {
+          lock_electorate++;
+          if (user.lock) {
+            lock_votes++;
+          }
+        }
+      }
+    }
+    needed = Math.floor(lock_electorate / 2 + 1);
+    if (lock_electorate <= 2) {
+      return false;
+    }
+    if (lock_votes >= needed) {
+      return true;
+    }
+    return false;
+  };
+
+  QuizRoom.prototype.active_count = function() {
+    var active_count, id, user, _ref;
+    active_count = 0;
+    _ref = this.users;
+    for (id in _ref) {
+      user = _ref[id];
+      if (user.active()) {
+        active_count++;
+      }
+    }
+    return active_count;
   };
 
   QuizRoom.prototype.get_parameters = function(type, difficulty, cb) {
@@ -5702,7 +5875,7 @@ QuizPlayerSlave = (function(_super) {
   function QuizPlayerSlave(room, id) {
     var blacklist, method, name;
     QuizPlayerSlave.__super__.constructor.call(this, room, id);
-    blacklist = ['envelop_action', 'score', 'online', 'active'];
+    blacklist = ['envelop_action', 'score', 'online', 'active', 'authorized'];
     for (name in this) {
       method = this[name];
       if (typeof method === 'function' && __indexOf.call(blacklist, name) < 0) {

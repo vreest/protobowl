@@ -1,4 +1,4 @@
-/* protobowl_css_build_date: Tue Nov 27 2012 18:15:59 GMT-0500 (EST) */
+/* protobowl_css_build_date: Thu Nov 29 2012 23:19:28 GMT-0500 (EST) */
 /*!
  * Bootstrap v2.1.0
  *
@@ -7471,7 +7471,7 @@ input[type=range] {
 .annotations {
   word-wrap: break-word;
 }
-.annotations .author {
+.annotations .guess .username {
   font-weight: bold;
 }
 .annotations .recipient {
@@ -7508,7 +7508,8 @@ input[type=range] {
   text-shadow: none;
 }
 .bundle .inline-icon .label {
-  padding-top: 0;
+  padding-top: 1px;
+  text-shadow: none;
   padding-bottom: 0;
   padding-left: 3px;
   padding-right: 3px;

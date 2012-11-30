@@ -4,4 +4,36 @@ extends ../layouts/normal-layout
 block content
 	h1 Feedback
 
-	p some feedback form
+	p As the title suggests, protobowl is an ever evolving product
+		| We are constantly trying new things and making your experience
+		| here as good as it can be. Drop some comments below and we'll be 
+		| sure to read them. Also don't be afraid to hit us up on twitter 
+		a(href='http://twitter.com/protobowl')
+			| @protobowl
+		|  or email us at 
+		a(href="mailto:info@protobowl.com")  
+			| feedback@protobowl.com
+
+	br
+
+	p Name and email are only for the purpose of being able to respond
+		| and are not required fields
+
+	br
+
+	form(action='/force-feedback', method='post').form-horizontal
+		div.control-group
+			label.control-label(for="name") Name
+			div.controls
+				input(type='text', name="name", placeholder="Bob").input-large#name
+		div.control-group
+			label.control-label(for="email") Email
+			div.controls
+				input(type='text', name="email", placeholder="bob@joe.com").input-large#email
+		div.control-group
+			label.control-label(for="feedback") Feedback
+			div.controls
+				textarea(type='text', name="feedback", placeholder="Some epic feedback", rows="5").input-xxlarge#feedback
+		div.control-group
+			div.controls
+				button(type='submit').btn#feedbacksubmit Submit
