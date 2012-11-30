@@ -151,9 +151,11 @@ if app.settings.env is 'production' and remote.deploy
 	log_config = remote.deploy.log
 	journal_config = remote.deploy.journal
 	console.log 'set to deployment defaults'
+    
+### ------------- DATABASE CODE IS BASED HERE ------------------ ###
+#### ---------NOW ALL YOUR BASE ARE BELONG TO US -------------- ####
 
-## Database connection helper function
-
+#Database connection helper function
 connect_database = (host, db_name) ->
 	db = mongoose.createConnection(host, db_name)
 
@@ -164,25 +166,19 @@ connect_database = (host, db_name) ->
 		console.log "Opened Database " + db_name
 
 	# SO SYNCRONUZ YO
-	return db
+    return db
+    
+# Connection is   
+userDB = connect_database 'localhost', 'proto_users_db'
 
-## -------------------------- User Database ---------------------- ##
-usersDB = connect_database 'localhost', 'proto_users_db'
-
+## -------------------------- User Schema ---------------------- ##
 user_schema = new mongoose.Schema {
 	email: String,
 	username: String,
 	ninja: Number
 }
 
-User = usersDB.model 'User', user_schema
-users = User.collection
-users.ensureIndex { id: 1, email: 1, username: 1, ninja:1 }
-
-
-## ------------------------- Stats Database ----------------------- ## 
-statsDB = connect_database 'localhost', 'proto_stats_db'
-
+## ------------------------- Stats Schema ----------------------- ## 
 stat_schema = new mongoose.Schema {
 	userid: String,
 	hashed: Boolean,
@@ -192,20 +188,28 @@ stat_schema = new mongoose.Schema {
 	time_spent: Number
 }
 
-Stat = statsDB.model 'Stat', stat_schema
-Stats = Stat.collection
-
 ## ------------------------- Stats Database ----------------------- ## 
-feedbacksDB = connect_database 'localhost', 'proto_feedbacks_db'
-
 feedback_schema = new mongoose.Schema {
 	name: String,
 	email: String,
 	feedback: String
 }
 
-Feedback = feedbacksDB.model 'Feedback', feedback_schema
-Feedbacks = Feedback.collection
+## -------------------- User Database Models --------------------- ## 
+User = usersDB.model 'User', user_schema
+Stat = userDB.model 'Stat', stat_schema
+Feedback = userDB.model 'Feedback', feedback_schema
+
+
+## ------------------ User Database Collections ------------------ ## 
+users = User.collection
+users.ensureIndex { id: 1, email: 1, username: 1, ninja:1 }
+
+stats = Stat.collection
+stats.ensureIndex { id: 1, userid: 1 }
+
+feedbacks = Feedback.collection
+feedbacks.ensureIndex { id: 1, email: 1, name: 1 }
 
 
 
@@ -222,11 +226,21 @@ authenticate_data = (email, callback) ->
 execute_query = (query, callback) ->
 	query.exec (err, data) ->
 		callback(data)
+        
+        
+########### ---<<>>>---- KEVIN< IF YOU SEE THIS
+# Should I update these stats like this whereas the user who buzzs
+# stats get updated and everyones stats get updated at some set 
+# interval of time, like every 30 seconds, that way people who
+# aren't doing anything still get some stat recording but
+# it shouldn't hammer the servers as much.
+# Also, how can I interate through all of the userids in the
+# @users object.
+########### --<<>>>>>>>>---------
+update_stats = (userid, seen, time_spent) ->
+	# Update all the stats, yo 
 
-update_stats = (room_name) ->
-	# Check to make sure they are online - update seen +1 
-
-update_buzzers_stats = (userid, guesses, interrupts, correct, time_spent) ->
+update_buzzers_stats = (userid, guesses, interrupts, correct, seen, time_spent) ->
 	# Update that users stats, yo
 
 
@@ -861,7 +875,7 @@ app.get '/feedback', (req, res) ->
 
 app.post '/force-feedback', (req, res) ->
 	# store the feedback in a database
-	# Flash a success on redirect -- flashs?
+	# Flash a success on redirect
 	# name, email, feedback are the fields
 	res.redirect '/'
 
