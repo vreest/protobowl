@@ -142,153 +142,36 @@ if app.settings.env is 'development'
 			console.log "changed file", filename
 			scheduledUpdate = setTimeout updateCache, 500
 
+	
 	fs.watch "shared", watcher
 	fs.watch "client", watcher
 	fs.watch "static/less", watcher
 	fs.watch "server/views/game/room.jade", watcher
 
+
+
+
+
 if app.settings.env is 'production' and remote.deploy
 	log_config = remote.deploy.log
 	journal_config = remote.deploy.journal
 	console.log 'set to deployment defaults'
-    
-### ------------- DATABASE CODE IS BASED HERE ------------------ ###
-#### ---------NOW ALL YOUR BASE ARE BELONG TO US -------------- ####
-
-#Database connection helper function
-connect_database = (host, db_name) ->
-	db = mongoose.createConnection(host, db_name)
-
-	db.on 'error', (err) ->
-		console.log db_name + " Database Error", err
-
-	db.on 'open', (err) ->
-		console.log "Opened Database " + db_name
-
-	# SO SYNCRONUZ YO
-	return db
-
-# Connection is   
-userDB = connect_database 'localhost', 'proto_users_db'
-
-## -------------------------- User Schema ---------------------- ##
-user_schema = new mongoose.Schema {
-	email: String,
-	username: String,
-	ninja: Number
-}
-
-## ------------------------- Stats Schema ----------------------- ## 
-stat_schema = new mongoose.Schema {
-	userid: String,
-	hashed: Boolean,
-	interrupts: Number,
-	correct: Number,
-	seen: Number,
-	time_spent: Number
-}
-
-## ------------------------- Stats Database ----------------------- ## 
-feedback_schema = new mongoose.Schema {
-	name: String,
-	email: String,
-	feedback: String
-}
-
-## -------------------- User Database Models --------------------- ## 
-User = userDB.model 'User', user_schema
-Stat = userDB.model 'Stat', stat_schema
-Feedback = userDB.model 'Feedback', feedback_schema
 
 
-## ------------------ User Database Collections ------------------ ## 
-users = User.collection
-users.ensureIndex { id: 1, email: 1, username: 1, ninja:1 }
-
-stats = Stat.collection
-stats.ensureIndex { id: 1, userid: 1 }
-
-feedbacks = Feedback.collection
-feedbacks.ensureIndex { id: 1, email: 1, name: 1 }
-
-
-
-## ------------------- Database Helper Functions -------------------- ##
-authenticate_data = (email, callback) ->
-	query = User.findOne {"email":email}
-
-	execute_query query, (user) ->
-		if user
-			callback(user)
-		else
-			callback(null)
-
-execute_query = (query, callback) ->
-	query.exec (err, data) ->
-		callback(data)
-        
-        
-########### ---<<>>>---- KEVIN< IF YOU SEE THIS
-# Should I update these stats like this whereas the user who buzzs
-# stats get updated and everyones stats get updated at some set 
-# interval of time, like every 30 seconds, that way people who
-# aren't doing anything still get some stat recording but
-# it shouldn't hammer the servers as much.
-# Also, how can I interate through all of the userids in the
-# @users object.
-########### --<<>>>>>>>>---------
-update_stats = (userid, seen, time_spent) ->
-	# Update all the stats, yo 
-
-update_buzzers_stats = (userid, guesses, interrupts, correct, seen, time_spent) ->
-	# Update that users stats, yo
-
-
-## ----------------------- User Auth Code --------------------------- ##
-passport.serializeUser (user, done) ->
-	done null, user
-
-passport.deserializeUser (user, done) ->
-	done null, user
-
-passport.use 'browserid', new BrowserID {audience: 'localhost:5555'},
-	(email, done) ->
-		authenticate_data email, (theData) ->
-			if theData
-				done null, theData
-			else
-				newUser = new User({    
-										'email':email,
-										'username':'randomusername',
-										'ninja':0,
-								   })
-				newUser.save (err) ->
-					console.log(err)
-
-				done null, newUser
-
-
-
-## ----------------------- Express Config --------------------------- ##
 app.use express.compress()
+# app.use express.staticCache()
 app.use express.cookieParser()
 app.use express.bodyParser()
-app.use express.session({ secret: 'keyboard cat' })
 app.use express.static('static')
 app.use express.favicon('static/img/favicon.ico')
-app.use passport.initialize()
-app.use passport.session()
 
-# simple helper functions that hashes things
+crypto = require 'crypto'
+
+# simple helper function that hashes things
 sha1 = (text) ->
 	hash = crypto.createHash('sha1')
 	hash.update(text)
 	hash.digest('hex')
-
-md5 = (text) ->
-	hash = crypto.createHash('md5')
-	hash.update(text)
-	hash.digest("hex")
 
 # inject the cookies into the session... yo
 app.use (req, res, next) ->
@@ -457,6 +340,38 @@ class SocketQuizPlayer extends QuizPlayer
 					output[check_name]++ if udat.active()
 		fn output if fn
 
+	ban: (duration = 1000 * 60 * 10) ->
+		if @room.serverTime() > @banned
+			@banned = @room.serverTime() + duration
+			@room._ip_ban = {} if !@room._ip_ban
+			for sock in @sockets
+				ip = io.sockets.socket(sock)?.handshake?.address?.address
+				continue if !ip
+				@room._ip_ban[ip] = { strikes: 0, banished: 0 } if !@room._ip_ban[ip]
+				@room._ip_ban[ip].strikes++
+
+		order = ['b', 'hm', 'cgl', 'mlp']
+
+		destination = order[(order.indexOf(@room.name) + 1)]
+
+		if !destination # nothing, there is nothing
+			@banned = 0
+			return 
+
+		@emit 'redirect', '/' + destination
+		
+		for sock in @sockets
+			io.sockets.socket(sock)?.disconnect()
+
+	ip_ban: (duration = 1000 * 60 * 15) ->
+		@room._ip_ban = {} if !@room._ip_ban
+		for sock in @sockets
+			ip = io.sockets.socket(sock)?.handshake?.address?.address
+			continue if !ip
+			@room._ip_ban[ip] = { strikes: 0, banished: @room.serverTime() + duration }
+		@ban(duration)
+
+
 	add_socket: (sock) ->
 		if @sockets.length is 0
 			@last_session = @room.serverTime()
@@ -464,16 +379,6 @@ class SocketQuizPlayer extends QuizPlayer
 
 		@sockets.push sock.id unless sock.id in @sockets
 		blacklist = ['add_socket', 'emit', 'disconnect']
-		
-		for attr of this when typeof this[attr] is 'function' and attr not in blacklist and attr[0] != '_'
-			# wow this is a pretty mesed up line
-			do (attr) => sock.on attr, (args...) => this[attr](args...)
-
-		id = sock.id
-
-		@room.journal()
-		
-		user_count_log 'connected ' + @id + '-' + @name, @room.name
 
 		sock.on 'disconnect', =>
 			@sockets = (s for s in @sockets when s isnt id)
@@ -481,6 +386,48 @@ class SocketQuizPlayer extends QuizPlayer
 				@disconnect()
 				@room.journal()
 				user_count_log 'disconnected ' + @id + '-' + @name, @room.name
+		
+		for attr of this when typeof this[attr] is 'function' and attr not in blacklist and attr[0] != '_'
+			# wow this is a pretty mesed up line
+			do (attr) => 
+				sock.on attr, (args...) => 
+					if @banned and @room.serverTime() < @banned
+						@ban()
+						# sock.disconnect()
+					else if @__rate_limited and @room.serverTime() < @__rate_limited
+						# console.log 'throwing away an event'
+						@throttle()
+						# sock.emit 'throttle', @__rate_limited
+					else
+						this[attr](args...)
+
+		if @banned and @room.serverTime() < @banned
+			@ban()
+			sock.disconnect()
+
+		id = sock.id
+
+		@room.journal()
+		
+		ip = sock?.handshake?.address?.address
+
+		if @room._ip_ban and @room._ip_ban[ip]
+			if @room._ip_ban[ip].strikes >= 3
+				@ip_ban()
+
+			if @room.serverTime() < @room._ip_ban[ip].banished
+				@ban()
+
+
+
+		# if ip of banned_ips
+		# 	if banned_ips[ip] < @room.serverTime()
+		# 		@ban()
+		# 	else
+		# 		delete banned_ips[ip]
+
+		user_count_log 'connected ' + @id + '-' + @name + " (#{ip})", @room.name
+
 
 
 	emit: (name, data) ->
@@ -571,10 +518,7 @@ io.sockets.on 'connection', (sock) ->
 					user.lock = (Math.random() > 0.5)
 
 		user = room.users[publicID]
-		if room.serverTime() < user.banned
-			sock.emit 'redirect', "/#{room_name}-banned"
-			sock.disconnect()
-			return
+		
 		user.name = 'secret ninja' if is_ninja
 		
 		sock.join room_name
@@ -730,9 +674,10 @@ app.post '/stalkermode/announce', (req, res) ->
 	}
 	res.redirect '/stalkermode'
 
+# i forgot why it was called al gore; possibly change
 app.post '/stalkermode/algore', (req, res) ->
-	remote.initialize_remote (time, layers) ->
-		res.end("counted all cats in #{time}ms: #{util.inspect(layers)}")
+	remote.populate_cache (layers) ->
+		res.end("counted all cats #{JSON.stringify(layers, null, '  ')}")
 
 app.get '/stalkermode/users', (req, res) -> res.render 'users.jade', { rooms: rooms }
 
@@ -748,13 +693,23 @@ app.get '/stalkermode/user/:room/:user', (req, res) ->
 	u = rooms?[req.params.room]?.users?[req.params.user]
 	u2 = {}
 	u2[k] = v for k, v of u when k not in ['room'] and typeof v isnt 'function'
-	res.render 'user.jade', { room: req.params.room, id: req.params.user, user: u, text: util.inspect(u2)}
+	if u
+		ips = (io.sockets.socket(sock)?.handshake?.address?.address for sock in u?.sockets)
+		
+	res.render 'user.jade', { room: req.params.room, id: req.params.user, user: u, text: util.inspect(u2), ips }
+
 
 app.get '/stalkermode/room/:room', (req, res) ->
 	u = rooms?[req.params.room]
 	u2 = {}
 	u2[k] = v for k, v of u when k not in ['users', 'timing', 'cumulative'] and typeof v isnt 'function'
 	res.render 'control.jade', { room: u, name: req.params.room, text: util.inspect(u2)}
+
+app.post '/stalkermode/stahp', (req, res) -> process.exit(0)
+
+app.post '/stalkermode/clear_bans/:room', (req, res) ->
+	delete rooms?[req.params.room]?._ip_bans
+	res.redirect "/stalkermode/room/#{req.params.room}"
 
 app.post '/stalkermode/delete_room/:room', (req, res) ->
 	if rooms?[req.params.room]?.users
@@ -778,6 +733,16 @@ app.post '/stalkermode/emit/:room/:user', (req, res) ->
 
 app.post '/stalkermode/exec/:command/:room/:user', (req, res) ->
 	rooms?[req.params.room]?.users?[req.params.user]?[req.params.command]?()
+	res.redirect "/stalkermode/user/#{req.params.room}/#{req.params.user}"
+
+app.post '/stalkermode/unban/:room/:user', (req, res) ->
+	rooms?[req.params.room]?.users?[req.params.user]?.banned = 0
+	res.redirect "/stalkermode/user/#{req.params.room}/#{req.params.user}"
+
+
+app.post '/stalkermode/negify/:room/:user/:num', (req, res) ->
+	rooms?[req.params.room]?.users?[req.params.user]?.interrupts += (parseInt(req.params.num) || 1)
+	rooms?[req.params.room]?.sync(1)
 	res.redirect "/stalkermode/user/#{req.params.room}/#{req.params.user}"
 
 app.post '/stalkermode/disco/:room/:user', (req, res) ->
