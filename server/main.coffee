@@ -166,8 +166,8 @@ connect_database = (host, db_name) ->
 		console.log "Opened Database " + db_name
 
 	# SO SYNCRONUZ YO
-    return db
-    
+	return db
+
 # Connection is   
 userDB = connect_database 'localhost', 'proto_users_db'
 
@@ -196,7 +196,7 @@ feedback_schema = new mongoose.Schema {
 }
 
 ## -------------------- User Database Models --------------------- ## 
-User = usersDB.model 'User', user_schema
+User = userDB.model 'User', user_schema
 Stat = userDB.model 'Stat', stat_schema
 Feedback = userDB.model 'Feedback', feedback_schema
 
