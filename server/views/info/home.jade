@@ -4,10 +4,15 @@ block title
 	title Home - ProtoBowl
 
 block precontainer
-	div.jumpotron.masthead
+	div.hero-unit
 		div.container
-			h1 Protobowl
-			p Realtime Multiplayer Online QuizBowl
+			h1 ProtoBowl
+			p Realtime Multiplayer Online Quizbowl
+
+
+
+
+
 
 	//- h3 Welcome to Protobowl
 	//- p If you want to learn more about the site or who made it checkout out our  
@@ -26,33 +31,55 @@ block precontainer
 	//- 		| info@protobowl.com
 
 block content
+	div.container.marketing
+		div.row
+			div.span4
+				img.img-circle(src="http://placehold.it/140x140")
+				h2 Teams
+				p Group up with your friends and get answering.
+					| There is full team functionality and really
+					| whats better than using your friends to win.
+				p
+					a(href="/lobby") Get Teamed Up
+			div.span4
+				img.img-circle(src="http://placehold.it/140x140")
+				h2 Questions
+				p With nearly 40,000 questions in the database, 
+					| and more being added every day ProtoBowl
+					| has the largest and most diverse collection
+					| of QuizBowl questions in one place.
+				p
+					a(href="/lobby") Explore the Database
+			div.span4
+				img.img-circle(src="http://placehold.it/140x140")
+				h2 Fun
+				p If practicing with friends at school is fun for you
+					| than ProtoBowl will be perfect, it's exactly the same
+					| just online.
+				p
+					a(href="/lobby") Start Having Fun
 
-	hr 
-
-	h3 Join a Room
-
-	table.table
-		thead
-			tr
-				th Room Name
-				th Difficulty
-				th #
-		tbody
-			td
-				a(href="/lobby") lobby
-			td Any
-			td probably should do this
 
 
-
-	p this is one of thee components in a row
-
-	h3 Contact Us
-
-
-
+	hr.featurette-divider
+	div.featurette
+		img.featurette-image.pull-right(src="./img/chrome.png")
+		h2.featurette-heading We so gud
+		p.lead rawawrawrawra
 
 
+	hr.featurette-divider
+	div.featurette
+		img.featurette-image.pull-left(src="./img/chrome.png")
+		h2.featurette-heading
+		p.lead rawawrawrawra
+
+
+	hr.featurette-divider
+	div.featurette
+		img.featurette-image.pull-right(src="./img/chrome.png")
+		h2.featurette-heading
+		p.lead rawawrawrawra
 
 
 

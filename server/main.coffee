@@ -50,7 +50,7 @@ log_config = { host: 'localhost', port: 18228 }
 
 if app.settings.env is 'development'
 	less = require 'less'
-	
+
 	Snockets = require 'snockets'
 	CoffeeScript = require 'coffee-script'
 	Snockets.compilers.coffee = 
@@ -92,12 +92,12 @@ if app.settings.env is 'development'
 
 
 		file_list = ['app', 'offline', 'auth']
-		
+
 		compileCoffee = ->
 			file = file_list.shift()
 			return saveFiles() if !file
 			console.log 'compiling coffee', file
-			
+
 			snockets.getConcatenation "client/#{file}.coffee", (err, js) ->
 				source_list.push {
 					code: "protobowl_#{file}_build = '#{compile_date}';\n#{js}", 
@@ -137,42 +137,158 @@ if app.settings.env is 'development'
 		compileLess()
 	watcher = (event, filename) ->
 		return if filename in ["offline.appcache", "protobowl.css", "app.js"]
-		
+
 		unless scheduledUpdate
 			console.log "changed file", filename
 			scheduledUpdate = setTimeout updateCache, 500
 
-	
 	fs.watch "shared", watcher
 	fs.watch "client", watcher
 	fs.watch "static/less", watcher
 	fs.watch "server/views/game/room.jade", watcher
 
-
-
-
-
 if app.settings.env is 'production' and remote.deploy
 	log_config = remote.deploy.log
 	journal_config = remote.deploy.journal
 	console.log 'set to deployment defaults'
+    
+### ------------- DATABASE CODE IS BASED HERE ------------------ ###
+#### ---------NOW ALL YOUR BASE ARE BELONG TO US -------------- ####
+
+#Database connection helper function
+connect_database = (host, db_name) ->
+	db = mongoose.createConnection(host, db_name)
+
+	db.on 'error', (err) ->
+		console.log db_name + " Database Error", err
+
+	db.on 'open', (err) ->
+		console.log "Opened Database " + db_name
+
+	# SO SYNCRONUZ YO
+	return db
+
+# Connection is   
+userDB = connect_database 'localhost', 'proto_users_db'
+
+## -------------------------- User Schema ---------------------- ##
+user_schema = new mongoose.Schema {
+	email: String,
+	username: String,
+	ninja: Number
+}
+
+## ------------------------- Stats Schema ----------------------- ## 
+stat_schema = new mongoose.Schema {
+	userid: String,
+	hashed: Boolean,
+	interrupts: Number,
+	correct: Number,
+	seen: Number,
+	time_spent: Number
+}
+
+## ------------------------- Stats Database ----------------------- ## 
+feedback_schema = new mongoose.Schema {
+	name: String,
+	email: String,
+	feedback: String
+}
+
+## -------------------- User Database Models --------------------- ## 
+User = userDB.model 'User', user_schema
+Stat = userDB.model 'Stat', stat_schema
+Feedback = userDB.model 'Feedback', feedback_schema
 
 
+## ------------------ User Database Collections ------------------ ## 
+users = User.collection
+users.ensureIndex { id: 1, email: 1, username: 1, ninja:1 }
+
+stats = Stat.collection
+stats.ensureIndex { id: 1, userid: 1 }
+
+feedbacks = Feedback.collection
+feedbacks.ensureIndex { id: 1, email: 1, name: 1 }
+
+
+
+## ------------------- Database Helper Functions -------------------- ##
+authenticate_data = (email, callback) ->
+	query = User.findOne {"email":email}
+
+	execute_query query, (user) ->
+		if user
+			callback(user)
+		else
+			callback(null)
+
+execute_query = (query, callback) ->
+	query.exec (err, data) ->
+		callback(data)
+        
+        
+########### ---<<>>>---- KEVIN< IF YOU SEE THIS
+# Should I update these stats like this whereas the user who buzzs
+# stats get updated and everyones stats get updated at some set 
+# interval of time, like every 30 seconds, that way people who
+# aren't doing anything still get some stat recording but
+# it shouldn't hammer the servers as much.
+# Also, how can I interate through all of the userids in the
+# @users object.
+########### --<<>>>>>>>>---------
+update_stats = (userid, seen, time_spent) ->
+	# Update all the stats, yo 
+
+update_buzzers_stats = (userid, guesses, interrupts, correct, seen, time_spent) ->
+	# Update that users stats, yo
+
+
+## ----------------------- User Auth Code --------------------------- ##
+passport.serializeUser (user, done) ->
+	done null, user
+
+passport.deserializeUser (user, done) ->
+	done null, user
+
+passport.use 'browserid', new BrowserID {audience: 'localhost:5555'},
+	(email, done) ->
+		authenticate_data email, (theData) ->
+			if theData
+				done null, theData
+			else
+				newUser = new User({    
+										'email':email,
+										'username':'randomusername',
+										'ninja':0,
+								   })
+				newUser.save (err) ->
+					console.log(err)
+
+				done null, newUser
+
+
+
+## ----------------------- Express Config --------------------------- ##
 app.use express.compress()
-# app.use express.staticCache()
 app.use express.cookieParser()
 app.use express.bodyParser()
+app.use express.session({ secret: 'keyboard cat' })
 app.use express.static('static')
 app.use express.favicon('static/img/favicon.ico')
+app.use passport.initialize()
+app.use passport.session()
 
-crypto = require 'crypto'
-
-# simple helper function that hashes things
+# simple helper functions that hashes things
 sha1 = (text) ->
 	hash = crypto.createHash('sha1')
 	hash.update(text)
 	hash.digest('hex')
 
+md5 = (text) ->
+	hash = crypto.createHash('md5')
+	hash.update(text)
+	hash.digest("hex")
 # inject the cookies into the session... yo
 app.use (req, res, next) ->
 	unless req.cookies['protocookie']
