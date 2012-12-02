@@ -187,25 +187,26 @@ userDB = connect_database 'localhost', 'proto_user_db'
 
 ## -------------------------- Schemas ---------------------- ##
 user_schema = new mongoose.Schema {
-	email: String,
-	username: String,
-	ninja: Number
+	email: String
+	, username: String
+	, ninja: Number
 }
 
 event_schema = new mongoose.Schema {
-	userid: String,
-	hashed: Boolean,
-	guesses: Number,
-	interrupts: Number,
-	correct: Number,
-	seen: Number,
-	time_spent: Number
+	uid: String
+	, early: Boolean
+	, seen: Number
+	, time_spent: Number
+	, answer: String
+	, category: String
+	, guess: String
+	, ruling: Boolean
 }
 
 feedback_schema = new mongoose.Schema {
-	name: String,
-	email: String,
-	feedback: String
+	name: String
+	, email: String
+	, feedback: String
 }
 
 ## -------------------- User Database Models --------------------- ## 
@@ -219,7 +220,7 @@ users = User.collection
 users.ensureIndex { id: 1, email: 1, username: 1, ninja:1 }
 
 events = Event.collection
-events.ensureIndex { id: 1, userid: 1 }
+events.ensureIndex { id: 1, uid: 1 }
 
 feedbacks = Feedback.collection
 feedbacks.ensureIndex { id: 1, email: 1, name: 1 }
@@ -240,52 +241,20 @@ execute_query = (query, callback) ->
 	query.exec (err, data) ->
 		callback(data)
         
-        
-update_stats = (userid, seen, time_spent) ->
-	query = Event.findOne {"userid":userid}
-
-	execute_query query, (user) ->
-		if user
-			Event.update({"userid":userid}, { 
-				$set: {
-					"seen":seen
-					, "time_spent":time_spent
-				}
-			}).exec()
-		else
-			aStat = new Event({
-								"userid":userid
+create_event = (uid, guess, correct, seen, time_spent) ->
+		aBuzz = new Event({	
+								"uid":uid
+								, "early":early
 								, "seen":seen
 								, "time_spent":time_spent
-							  })
-			aStat.save (err) ->
-				console.log(err)
-
-update_buzzers_stats = (userid, guess, interrupts, correct, seen, time_spent) ->
-	query = Event.findOne {"userid":userid}
-
-	execute_query query, (user) ->
-		if user
-			Event.update({"userid":userid}, {
-				$set:{
-					"guesses":guess 
-					, "interrupts":interrupts
-					, "correct":correct
-					, "seen":seen
-					, "time_spent":time_spent
-				}
-			}).exec()
-		else
-			aBuzz = new Event({	
-								"userid":userid
-								, "guesses":guess
-								, "correct":correct
-								, "seen":seen
-								, "time_spent":time_spent
+								, "answer":answer
+								, "category":category
+								, "guess":guess
+								, "ruling":ruling
 							 })
 
-			aBuzz.save (err) ->
-				console.log(err)
+		aBuzz.save (err) ->
+			console.log(err)
 
 ## ----------------------- User Auth Code --------------------------- ##
 passport.serializeUser (user, done) ->
@@ -396,9 +365,6 @@ class SocketQuizRoom extends QuizRoom
 	check_answer: (attempt, answer, question) -> checkAnswer(attempt, answer, question) 
 
 	get_question: (callback) ->
-		# for id, user of @users
-		# 	update_stats(id, user.seen, user.time_spent)
-
 		cb = (question) =>
 			log 'next', [@name, question?.answer]
 			callback(question)
@@ -421,7 +387,7 @@ class SocketQuizRoom extends QuizRoom
 			ruling = @check_answer @attempt.text, @answer, @question
 			log 'buzz', [@name, @attempt.user + '-' + @users[@attempt.user].name, @attempt.text, @answer, ruling]
 
-			update_buzzers_stats(@users[@attempt.user].id, @users[@attempt.user].guesses, @users[@attempt.user].interrupts, @users[@attempt.user].correct, @users[@attempt.user].seen, @users[@attempt.user].time_spent)
+			create_event(@users[@attempt.user].id, @users[@attempt.user].guesses, @users[@attempt.user].interrupts, @users[@attempt.user].correct, @users[@attempt.user].seen, @users[@attempt.user].time_spent)
 
 			# # Possibly add a way to see the distribution of different categories / difficulties
 
