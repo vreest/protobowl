@@ -5,6 +5,8 @@ try
 catch err
 	remote = require './local'
 
+remote.initialize_remote()
+
 express = require 'express'
 fs = require 'fs'
 http = require 'http'
@@ -156,9 +158,6 @@ if app.settings.env is 'development'
 	fs.watch "client", watcher
 	fs.watch "client/less", watcher
 	fs.watch "server/views/game/room.jade", watcher
-
-
-
 
 
 if app.settings.env is 'production' and remote.deploy
@@ -385,12 +384,8 @@ class SocketQuizRoom extends QuizRoom
 	end_buzz: (session) ->
 		if @attempt?.user
 			ruling = @check_answer @attempt.text, @answer, @question
-			log 'buzz', [@name, @attempt.user + '-' + @users[@attempt.user].name, @attempt.text, @answer, ruling]
-
+			log 'buzz', [@name, @attempt.user + '-' + @users[@attempt.user]?.name, @attempt.text, @answer, ruling]
 			create_event(@users[@attempt.user].id, @users[@attempt.user].guesses, @users[@attempt.user].interrupts, @users[@attempt.user].correct, @users[@attempt.user].seen, @users[@attempt.user].time_spent)
-
-			# # Possibly add a way to see the distribution of different categories / difficulties
-
 		super(session)
 
 	merge_user: (id, new_id) ->
@@ -527,13 +522,15 @@ class SocketQuizPlayer extends QuizPlayer
 				sock.on attr, (args...) => 
 					if @banned and @room.serverTime() < @banned
 						@ban()
-						# sock.disconnect()
 					else if @__rate_limited and @room.serverTime() < @__rate_limited
-						# console.log 'throwing away an event'
 						@throttle()
-						# sock.emit 'throttle', @__rate_limited
 					else
-						this[attr](args...)
+						try
+							this[attr](args...)
+						catch err
+							console.error "Error while running QuizPlayer::#{attr} for #{@room.name}/#{@id} with args: ", args
+							console.error err.stack
+							@room.emit 'debug', "Error while running QuizPlayer::#{attr} for #{@room.name}/#{@id}.\nPlease email info@protobowl.com with the contents of this error.\n\n#{err.stack}"
 
 		if @banned and @room.serverTime() < @banned
 			@ban()
@@ -644,9 +641,9 @@ io.sockets.on 'connection', (sock) ->
 					# probablistic systems work for lots of things
 					user.lock = (Math.random() > 0.5)
 
-		user = room.users[publicID]		
-		user.name = 'secret ninja' if is_ninja		
-		sock.join room_name		
+		user = room.users[publicID]
+		user.name = 'secret ninja' if is_ninja
+		sock.join room_name
 		user.add_socket sock
 		sock.emit 'joined', { id: user.id, name: user.name, existing: existing_user }
 		room.sync(3) # tell errybody that there's a new person at the partaay
@@ -723,7 +720,7 @@ clearInactive = ->
 			id: u.id,
 			name: u.name
 		}
-		reaped.us++
+		reaped.users++
 		reaped.seen += u.seen
 		reaped.guesses += u.guesses
 		reaped.early += u.early
@@ -731,7 +728,7 @@ clearInactive = ->
 		reaped.correct += u.correct
 		reaped.time_spent += u.time_spent
 		reaped.last_action = +new Date
-		delete room.users[u.id]
+		delete u.room.users[u.id]
 
 	for room_name, room of rooms
 		user_pool = (user for id, user of room.users)
@@ -904,8 +901,9 @@ app.post '/stalkermode/reports/remove_question/:id', (req, res) ->
 
 app.post '/stalkermode/reports/change_question/:id', (req, res) ->
 	mongoose = require 'mongoose'
+	blacklist = ['inc_random', 'seen']
 	remote.Question.findById mongoose.Types.ObjectId(req.params.id), (err, doc) ->
-		for key, val of req.body
+		for key, val of req.body when key not in blacklist
 			doc[key] = val
 		doc.save()
 		res.end('gots it')
@@ -992,8 +990,6 @@ app.get '/:type/:channel', (req, res) ->
 	name = req.params.channel
 	res.render './game/room.jade', { name, user: null} # USER MUST BE NULL
 
-
-remote.initialize_remote()
 port = process.env.PORT || 5555
 server.listen port, ->
 	console.log "listening on port", port
