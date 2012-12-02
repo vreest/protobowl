@@ -153,7 +153,7 @@ if app.settings.env is 'production' and remote.deploy
 	console.log 'set to deployment defaults'
     
 ### ------------- DATABASE CODE IS BASED HERE ------------------ ###
-#### ---------NOW ALL YOUR BASE ARE BELONG TO US -------------- ####
+#### -------- NOW ALL YOUR BASE ARE BELONG TO US -------------- ####
 
 #Database connection helper function
 connect_database = (host, db_name) ->
@@ -168,27 +168,26 @@ connect_database = (host, db_name) ->
 	# SO SYNCRONUZ YO
 	return db
 
-# Connection is   
-userDB = connect_database 'localhost', 'proto_users_db'
+# Gettin connected
+userDB = connect_database 'localhost', 'proto_user_db'
 
-## -------------------------- User Schema ---------------------- ##
+## -------------------------- Schemas ---------------------- ##
 user_schema = new mongoose.Schema {
 	email: String,
 	username: String,
 	ninja: Number
 }
 
-## ------------------------- Stats Schema ----------------------- ## 
-stat_schema = new mongoose.Schema {
+event_schema = new mongoose.Schema {
 	userid: String,
 	hashed: Boolean,
+	guesses: Number,
 	interrupts: Number,
 	correct: Number,
 	seen: Number,
 	time_spent: Number
 }
 
-## ------------------------- Stats Database ----------------------- ## 
 feedback_schema = new mongoose.Schema {
 	name: String,
 	email: String,
@@ -197,7 +196,7 @@ feedback_schema = new mongoose.Schema {
 
 ## -------------------- User Database Models --------------------- ## 
 User = userDB.model 'User', user_schema
-Stat = userDB.model 'Stat', stat_schema
+Event = userDB.model 'Event', event_schema
 Feedback = userDB.model 'Feedback', feedback_schema
 
 
@@ -205,8 +204,8 @@ Feedback = userDB.model 'Feedback', feedback_schema
 users = User.collection
 users.ensureIndex { id: 1, email: 1, username: 1, ninja:1 }
 
-stats = Stat.collection
-stats.ensureIndex { id: 1, userid: 1 }
+events = Event.collection
+events.ensureIndex { id: 1, userid: 1 }
 
 feedbacks = Feedback.collection
 feedbacks.ensureIndex { id: 1, email: 1, name: 1 }
@@ -228,21 +227,51 @@ execute_query = (query, callback) ->
 		callback(data)
         
         
-########### ---<<>>>---- KEVIN< IF YOU SEE THIS
-# Should I update these stats like this whereas the user who buzzs
-# stats get updated and everyones stats get updated at some set 
-# interval of time, like every 30 seconds, that way people who
-# aren't doing anything still get some stat recording but
-# it shouldn't hammer the servers as much.
-# Also, how can I interate through all of the userids in the
-# @users object.
-########### --<<>>>>>>>>---------
 update_stats = (userid, seen, time_spent) ->
-	# Update all the stats, yo 
+	query = Event.findOne {"userid":userid}
 
-update_buzzers_stats = (userid, guesses, interrupts, correct, seen, time_spent) ->
-	# Update that users stats, yo
+	execute_query query, (user) ->
+		if user
+			Event.update({"userid":userid}, { 
+				$set: {
+					"seen":seen
+					, "time_spent":time_spent
+				}
+			}).exec()
+		else
+			aStat = new Event({
+								"userid":userid
+								, "seen":seen
+								, "time_spent":time_spent
+							  })
+			aStat.save (err) ->
+				console.log(err)
 
+update_buzzers_stats = (userid, guess, interrupts, correct, seen, time_spent) ->
+	query = Event.findOne {"userid":userid}
+
+	execute_query query, (user) ->
+		if user
+			Event.update({"userid":userid}, {
+				$set:{
+					"guesses":guess 
+					, "interrupts":interrupts
+					, "correct":correct
+					, "seen":seen
+					, "time_spent":time_spent
+				}
+			}).exec()
+		else
+			aBuzz = new Event({	
+								"userid":userid
+								, "guesses":guess
+								, "correct":correct
+								, "seen":seen
+								, "time_spent":time_spent
+							 })
+
+			aBuzz.save (err) ->
+				console.log(err)
 
 ## ----------------------- User Auth Code --------------------------- ##
 passport.serializeUser (user, done) ->
@@ -258,9 +287,9 @@ passport.use 'browserid', new BrowserID {audience: 'localhost:5555'},
 				done null, theData
 			else
 				newUser = new User({    
-										'email':email,
-										'username':'randomusername',
-										'ninja':0,
+										'email':email
+										, 'username':'randomusername'
+										, 'ninja':0,
 								   })
 				newUser.save (err) ->
 					console.log(err)
@@ -289,6 +318,7 @@ md5 = (text) ->
 	hash = crypto.createHash('md5')
 	hash.update(text)
 	hash.digest("hex")
+	
 # inject the cookies into the session... yo
 app.use (req, res, next) ->
 	unless req.cookies['protocookie']
@@ -346,9 +376,11 @@ class SocketQuizRoom extends QuizRoom
 	check_answer: (attempt, answer, question) -> checkAnswer(attempt, answer, question) 
 
 	get_question: (callback) ->
+		# for id, user of @users
+		# 	update_stats(id, user.seen, user.time_spent)
+
 		cb = (question) =>
 			log 'next', [@name, question?.answer]
-			update_stats(@name)
 			callback(question)
 		if @next_id and @show_bonus
 			remote.get_by_id @next_id, cb
@@ -369,12 +401,7 @@ class SocketQuizRoom extends QuizRoom
 			ruling = @check_answer @attempt.text, @answer, @question
 			log 'buzz', [@name, @attempt.user + '-' + @users[@attempt.user].name, @attempt.text, @answer, ruling]
 
-			update_buzzers_stats	@users[@attempt.user], 
-									@users[@attempt.user].guesses, 
-									@users[@attempt.user].interrupts, 
-									@users[@attempt.user].correct,
-									@users[@attempt.user].time_spent
-								
+			update_buzzers_stats(@users[@attempt.user].id, @users[@attempt.user].guesses, @users[@attempt.user].interrupts, @users[@attempt.user].correct, @users[@attempt.user].seen, @users[@attempt.user].time_spent)
 
 			# # Possibly add a way to see the distribution of different categories / difficulties
 
@@ -533,14 +560,6 @@ class SocketQuizPlayer extends QuizPlayer
 
 			if @room.serverTime() < @room._ip_ban[ip].banished
 				@ban()
-
-
-
-		# if ip of banned_ips
-		# 	if banned_ips[ip] < @room.serverTime()
-		# 		@ban()
-		# 	else
-		# 		delete banned_ips[ip]
 
 		user_count_log 'connected ' + @id + '-' + @name + " (#{ip})", @room.name
 
