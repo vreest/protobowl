@@ -312,7 +312,10 @@ class QuizPlayer
 		@touch()
 		@room.sync(1)
 
-	echo: (data, callback) -> callback @room.serverTime()
+	echo: (data, callback) -> 
+		if data.avg and data.std and data.n
+			@_latency = [data.avg, data.std, data.n]
+		callback @room.serverTime()
 
 	buzz: (data, fn) -> 
 		@touch()

@@ -28,6 +28,7 @@ html(lang="en")
 				})
 			});
 			$('body').keydown(function(e){
+				if($(this).is("input, textarea")) return;
 				if(e.keyCode == 75){ //k
 					$('.bundle:visible:first .closereport').click()
 				}else if(e.keyCode == 74){ //j

@@ -65,11 +65,13 @@ if app.settings.env is 'development'
 
 	updateCache = ->
 		source_list = []
-		compile_date = new Date;
+		compile_date = new Date
+		timehash = ''
+		cache_text = ''
 
 		compileLess = ->
 			console.log 'compiling less'
-			lessPath = 'static/less/protobowl.less'
+			lessPath = 'client/less/protobowl.less'
 			fs.readFile lessPath, 'utf8', (err, data) ->
 				throw err if err
 
@@ -80,10 +82,11 @@ if app.settings.env is 'development'
 
 				parser.parse data, (err, tree) ->
 					css = tree?.toCSS {
-						compress: false
+						compress: true
 					}
 
 					source_list.push {
+						hash: sha1(css),
 						code: "/* protobowl_css_build_date: #{compile_date} */\n#{css}",
 						err: err,
 						file: "static/protobowl.css"
@@ -92,14 +95,15 @@ if app.settings.env is 'development'
 
 
 		file_list = ['app', 'offline', 'auth']
-
+		
 		compileCoffee = ->
 			file = file_list.shift()
 			return saveFiles() if !file
 			console.log 'compiling coffee', file
-
+			
 			snockets.getConcatenation "client/#{file}.coffee", (err, js) ->
 				source_list.push {
+					hash: sha1(js),
 					code: "protobowl_#{file}_build = '#{compile_date}';\n#{js}", 
 					err: err, 
 					file: "static/#{file}.js"
@@ -107,6 +111,13 @@ if app.settings.env is 'development'
 				compileCoffee()
 
 		saveFiles = ->
+			# its something like a unitard
+			unihash = sha1((i.hash for i in source_list).join(''))
+			if unihash is timehash
+				console.log 'files not modified; aborting'
+				return
+			error_message = ''
+				
 			console.log 'saving files'
 			error_message = ''
 			for i in source_list
@@ -121,31 +132,39 @@ if app.settings.env is 'development'
 					fs.writeFile i.file, i.code, 'utf8', ->
 						saved_count++
 						if saved_count is source_list.length
-							writeManifest()
+							writeManifest(unihash)
 
-		writeManifest = ->
+		writeManifest = (hash) ->
 			console.log 'saving manifest'
-			fs.readFile 'static/offline.appcache', 'utf8', (err, data) ->
+		
+			data = cache_text.replace(/INSERT_DATE.*?\n/, 'INSERT_DATE '+(new Date).toString() + " # #{hash}\n")
+			fs.writeFile 'static/offline.appcache', data, (err) ->
 				throw err if err
-				data = data.replace(/INSERT_DATE.*?\n/, 'INSERT_DATE '+(new Date).toString() + "\n")
-				fs.writeFile 'static/offline.appcache', data, (err) ->
-					throw err if err
-					io.sockets.emit 'force_application_update', +new Date
-					scheduledUpdate = null
+				io.sockets.emit 'force_application_update', +new Date
+				scheduledUpdate = null
 
-
-		compileLess()
+		fs.readFile 'static/offline.appcache', 'utf8', (err, data) ->
+			cache_text = data
+			timehash = cache_text.match(/INSERT_DATE (.*?)\n/)?[1]?.split(" # ")?[1]
+			compileLess()
+			
 	watcher = (event, filename) ->
 		return if filename in ["offline.appcache", "protobowl.css", "app.js"]
-
+			
 		unless scheduledUpdate
 			console.log "changed file", filename
 			scheduledUpdate = setTimeout updateCache, 500
 
+	updateCache()
+	
 	fs.watch "shared", watcher
 	fs.watch "client", watcher
-	fs.watch "static/less", watcher
+	fs.watch "client/less", watcher
 	fs.watch "server/views/game/room.jade", watcher
+
+
+
+
 
 if app.settings.env is 'production' and remote.deploy
 	log_config = remote.deploy.log
@@ -487,9 +506,7 @@ class SocketQuizPlayer extends QuizPlayer
 		if @room.serverTime() > @banned
 			@banned = @room.serverTime() + duration
 			@room._ip_ban = {} if !@room._ip_ban
-			for sock in @sockets
-				ip = io.sockets.socket(sock)?.handshake?.address?.address
-				continue if !ip
+			for ip in @ip()
 				@room._ip_ban[ip] = { strikes: 0, banished: 0 } if !@room._ip_ban[ip]
 				@room._ip_ban[ip].strikes++
 
@@ -508,11 +525,19 @@ class SocketQuizPlayer extends QuizPlayer
 
 	ip_ban: (duration = 1000 * 60 * 15) ->
 		@room._ip_ban = {} if !@room._ip_ban
-		for sock in @sockets
-			ip = io.sockets.socket(sock)?.handshake?.address?.address
-			continue if !ip
+		for ip in @ip()
 			@room._ip_ban[ip] = { strikes: 0, banished: @room.serverTime() + duration }
 		@ban(duration)
+
+	ip: ->
+		ips = []
+		for sock_id in @sockets
+			sock = io.sockets.socket(sock_id)
+			real_ip = sock.handshake?.address?.address
+			forward_ip = sock.handshake?.headers?["x-forwarded-for"]
+			addr = (forward_ip || real_ip)
+			ips.push addr if sock and addr
+		return ips
 
 
 	add_socket: (sock) ->
@@ -520,11 +545,12 @@ class SocketQuizPlayer extends QuizPlayer
 			@last_session = @room.serverTime()
 			@verb 'joined the room'
 
+
 		@sockets.push sock.id unless sock.id in @sockets
 		blacklist = ['add_socket', 'emit', 'disconnect']
-
+		
 		sock.on 'disconnect', =>
-			@sockets = (s for s in @sockets when s isnt id)
+			@sockets = (s for s in @sockets when (s isnt sock.id and io.sockets.socket(s)))
 			if @sockets.length is 0
 				@disconnect()
 				@room.journal()
@@ -548,18 +574,17 @@ class SocketQuizPlayer extends QuizPlayer
 			@ban()
 			sock.disconnect()
 
-		id = sock.id
-
 		@room.journal()
 		
-		ip = sock?.handshake?.address?.address
+		for ip in @ip()
+			if @room._ip_ban and @room._ip_ban[ip]
+				if @room._ip_ban[ip].strikes >= 3
+					@ip_ban()
 
-		if @room._ip_ban and @room._ip_ban[ip]
-			if @room._ip_ban[ip].strikes >= 3
-				@ip_ban()
+				if @room.serverTime() < @room._ip_ban[ip].banished
+					@ban()
+					break
 
-			if @room.serverTime() < @room._ip_ban[ip].banished
-				@ban()
 
 		user_count_log 'connected ' + @id + '-' + @name + " (#{ip})", @room.name
 
@@ -828,10 +853,8 @@ app.get '/stalkermode/user/:room/:user', (req, res) ->
 	u = rooms?[req.params.room]?.users?[req.params.user]
 	u2 = {}
 	u2[k] = v for k, v of u when k not in ['room'] and typeof v isnt 'function'
-	if u
-		ips = (io.sockets.socket(sock)?.handshake?.address?.address for sock in u?.sockets)
 		
-	res.render 'user.jade', { room: req.params.room, id: req.params.user, user: u, text: util.inspect(u2), ips }
+	res.render 'user.jade', { room: req.params.room, id: req.params.user, user: u, text: util.inspect(u2), ips: u?.ip() }
 
 
 app.get '/stalkermode/room/:room', (req, res) ->

@@ -252,7 +252,7 @@ class QuizRoom
 	finish: -> @set_time @end_time
 
 	next: ->
-		if @generating_question and @serverTime() - @generating_question < 1000
+		if @generating_question and @serverTime() - @generating_question > 2000
 			delete @generating_question
 			return
 
@@ -298,7 +298,7 @@ class QuizRoom
 				@attempt.text = ''
 				@attempt.duration = 10 * 1000
 
-				@timeout @attempt.duration, => #@serverTime, @attempt.realTime + @attempt.duration, =>
+				@timeout @attempt.duration, => #@serverTime, @attempt.realTime + @billMahrer, =>
 					@end_buzz session
 			@sync()
 		else
