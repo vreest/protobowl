@@ -11,6 +11,7 @@
 * add support for superpower [+]
 * statistical skill metrics i.e. score/interrupts
 * Add more questions, create new parser in order to do so
+* Add a computer science section
 
 # In Progress
 * Support different question sets
@@ -48,7 +49,7 @@ Yeah, yeah, buzzwords galore. It's responsively designed which means that it sho
 
 It's been tested on a few browsers, Chrome (on Linux, Windows, iPad, Galaxy Nexus) and Firefox and Safari on iPad. 
 
-It's built with Twitter Bootstrap, sans fugly black bar on top, so it should inherit most of the responsiveness. Also, it uses Font Awesome for all glyphs and that means everything's vector and smoth even at absurd pixel densities.
+It's built with Twitter Bootstrap, sans fugly black bar on top, so it should inherit most of the responsiveness. Also, it uses Font Awesome for all glyphs and that means everything's vector and smooth even at absurd pixel densities.
 
 ## Offline
 
