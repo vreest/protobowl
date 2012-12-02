@@ -788,7 +788,7 @@ app.post '/stalkermode/algore', (req, res) ->
 	remote.populate_cache (layers) ->
 		res.end("counted all cats #{JSON.stringify(layers, null, '  ')}")
 
-app.get '/stalkermode/users', (req, res) -> res.render 'users.jade', { rooms: rooms }
+app.get '/stalkermode/users', (req, res) -> res.render './ninja/users.jade', { rooms: rooms }
 
 app.get '/stalkermode/cook', (req, res) ->
 	remote.cook(req, res)
@@ -803,14 +803,14 @@ app.get '/stalkermode/user/:room/:user', (req, res) ->
 	u2 = {}
 	u2[k] = v for k, v of u when k not in ['room'] and typeof v isnt 'function'
 		
-	res.render 'user.jade', { room: req.params.room, id: req.params.user, user: u, text: util.inspect(u2), ips: u?.ip() }
+	res.render './ninja/user.jade', { room: req.params.room, id: req.params.user, user: u, text: util.inspect(u2), ips: u?.ip() }
 
 
 app.get '/stalkermode/room/:room', (req, res) ->
 	u = rooms?[req.params.room]
 	u2 = {}
 	u2[k] = v for k, v of u when k not in ['users', 'timing', 'cumulative'] and typeof v isnt 'function'
-	res.render 'control.jade', { room: u, name: req.params.room, text: util.inspect(u2)}
+	res.render './ninja/control.jade', { room: u, name: req.params.room, text: util.inspect(u2)}
 
 app.post '/stalkermode/stahp', (req, res) -> process.exit(0)
 
@@ -874,7 +874,7 @@ app.get '/stalkermode', (req, res) ->
 		latencies.push(user._latency[0]) for id, user of room.users when user._latency
 
 
-	res.render './stalkermode/admin.jade', {
+	res.render './ninja/admin.jade', {
 		env: app.settings.env,
 		mem: util.inspect(process.memoryUsage()),
 		start: uptime_begin,
@@ -910,21 +910,21 @@ app.post '/stalkermode/reports/change_question/:id', (req, res) ->
 
 app.get '/stalkermode/reports/all', (req, res) ->
 	remote.Report.find {}, (err, docs) ->
-		res.render 'reports.jade', { reports: docs, categories: remote.get_categories('qb') }
+		res.render './ninja/reports.jade', { reports: docs, categories: remote.get_categories('qb') }
 
 app.get '/stalkermode/reports/:type', (req, res) ->
 	remote.Report.find {describe: req.params.type}, (err, docs) ->
-		res.render './stalkermode/reports.jade', { reports: docs, categories: remote.get_categories('qb') }
+		res.render './ninja/reports.jade', { reports: docs, categories: remote.get_categories('qb') }
 
-app.get '/stalkermode/patriot', (req, res) -> res.render 'dash.jade'
+app.get '/stalkermode/patriot', (req, res) -> res.render './ninja/dash.jade'
 
 app.get '/stalkermode/archived', (req, res) -> 
 	remote.listArchived (list) ->
-		res.render 'archived.jade', { list, rooms }
+		res.render './ninja/archived.jade', { list, rooms }
 
 app.get '/stalkermode/:other', (req, res) -> res.redirect '/stalkermode'
 
-app.get '/401', (req, res) -> res.render 'auth.jade', {}
+app.get '/401', (req, res) -> res.render './ninja/auth.jade', {}
 
 app.post '/401', (req, res) -> remote.authenticate(req, res)
 
