@@ -193,6 +193,7 @@ user_schema = new mongoose.Schema {
 
 event_schema = new mongoose.Schema {
 	uid: String
+	, room_name:String
 	, early: Boolean
 	, seen: Number
 	, time_spent: Number
@@ -240,9 +241,10 @@ execute_query = (query, callback) ->
 	query.exec (err, data) ->
 		callback(data)
         
-create_event = (uid, guess, correct, seen, time_spent) ->
+create_event = (uid, room_name, early, seen, time_spent, answer, category, guess, ruling) ->
 		aBuzz = new Event({	
 								"uid":uid
+								, "room_name":room_name
 								, "early":early
 								, "seen":seen
 								, "time_spent":time_spent
@@ -385,7 +387,17 @@ class SocketQuizRoom extends QuizRoom
 		if @attempt?.user
 			ruling = @check_answer @attempt.text, @answer, @question
 			log 'buzz', [@name, @attempt.user + '-' + @users[@attempt.user]?.name, @attempt.text, @answer, ruling]
-			create_event(@users[@attempt.user].id, @users[@attempt.user].guesses, @users[@attempt.user].interrupts, @users[@attempt.user].correct, @users[@attempt.user].seen, @users[@attempt.user].time_spent)
+
+			create_event	@attempt.user
+							, @name
+							, @users[@attempt.user].early 
+							, @users[@attempt.user].seen 
+							, @users[@attempt.user].time_spent 
+							, @answer
+							, @question.category
+							, @attempt.text
+							, ruling
+						
 		super(session)
 
 	merge_user: (id, new_id) ->
@@ -971,6 +983,8 @@ app.post '/auth/link', (req, res, next) ->
 		return next(err) if err
 		res.end 'fail' if !user
 		req.login user, (err) ->
+
+			Event.update({"uid":req.body.id}, {$set: {"uid":sha1(user.email)}}, {multi:true}).exec()
 
 			rooms[req.body.room].merge_user(req.body.id, sha1(user.email))
 
