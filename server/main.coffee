@@ -187,20 +187,30 @@ userDB = connect_database 'localhost', 'proto_user_db'
 ## -------------------------- Schemas ---------------------- ##
 user_schema = new mongoose.Schema {
 	email: String
+	, stash: [cache_schema]
 	, username: String
-	, ninja: Number
+	ninja: Number
+}
+
+cache_schema = new mongoose.Schema {
+	sid: String
+	, early: Number
+	, seen: Number
+	, tspent: Number
+	, rtrue: Number
+	rfalse: Number
 }
 
 event_schema = new mongoose.Schema {
 	uid: String
-	, room_name:String
+	, sid: String
 	, early: Boolean
 	, seen: Number
-	, time_spent: Number
+	, tspent: Number
 	, answer: String
 	, category: String
 	, guess: String
-	, ruling: Boolean
+	ruling: Boolean
 }
 
 feedback_schema = new mongoose.Schema {
@@ -241,13 +251,13 @@ execute_query = (query, callback) ->
 	query.exec (err, data) ->
 		callback(data)
         
-create_event = (uid, room_name, early, seen, time_spent, answer, category, guess, ruling) ->
+create_event = (uid, sid, early, seen, tspent, answer, category, guess, ruling) ->
 		aBuzz = new Event({	
 								"uid":uid
-								, "room_name":room_name
+								, "sid":sid
 								, "early":early
 								, "seen":seen
-								, "time_spent":time_spent
+								, "tspent":tspent
 								, "answer":answer
 								, "category":category
 								, "guess":guess
@@ -389,7 +399,7 @@ class SocketQuizRoom extends QuizRoom
 			log 'buzz', [@name, @attempt.user + '-' + @users[@attempt.user]?.name, @attempt.text, @answer, ruling]
 
 			create_event	@attempt.user
-							, @name
+							, @name + '-' + @attempt.user + '-' + new Date()
 							, @users[@attempt.user].early 
 							, @users[@attempt.user].seen 
 							, @users[@attempt.user].time_spent 
@@ -404,7 +414,7 @@ class SocketQuizRoom extends QuizRoom
 		return false if !@users[id]
 		if @users[new_id]
 			# merge current user into this one
-			sum_terms = ['guesses', 'interrupts', 'early', 'seen', 'correct', 'time_spent']
+			sum_terms = ['guesses', 'interrupts', 'early', 'seen', 'correct', 'tspent']
 			for term in sum_terms
 				@users[new_id][term] += @users[id][term]
 			delete @users[id]
