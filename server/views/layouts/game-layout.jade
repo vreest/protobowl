@@ -11,8 +11,6 @@ html(lang="en")
 		link(rel='stylesheet', href='/protobowl.css')
 	
 		body
-
-
 			div.navbar.navbar-top
 				div.navbar-inner
 					div.container
@@ -22,9 +20,21 @@ html(lang="en")
 							em.motto.hidden-phone(style="font-size: small")
 								| doing one thing and doing it acceptably well
 
-						div.pull-right
+						div.pull-right.btn-group
+							a.btn.btn-primary.new-room(href='/new') New Room
+							a.btn.btn-primary.dropdown-toggle(data-toggle="dropdown")
+								span.caret
+							ul(style="padding: 15px; padding-bottom: 0px;").dropdown.dropdown-menu
+								form(action='/', method='POST')
+									#name
+										label(for='roomput') Room Name: 
+											br
+											br
+											input#roomput(name='roomput', type='text').input
+									#submit
+										input(type='submit').btn.btn-primary.btn-xlarge Submit
 
-							a.btn.btn-primary.new-room(href="/new") New Room
+						div.pull-right
 							ul#userinfo.nav(role="navigation", style="display:#{typeof name == 'undefined' ? '' : 'none'}")
 								li#signin(style="display:#{user ? 'none' : ''}")
 									a(href="/signin")
@@ -48,7 +58,7 @@ html(lang="en")
 
 			block precontainer
 			
-			div.container
+			div.container#main-contain
 				block content
 
 			script(src="https://login.persona.org/include.js")
@@ -58,6 +68,13 @@ html(lang="en")
 			
 
 			block scripts
+
+			script
+				// Fix input element click problem
+				$('.dropdown input, .dropdown label').click(function(e) {
+					e.stopPropagation();
+				});
+
 
 			script(type="text/javascript")
 				var _gaq = _gaq || [];

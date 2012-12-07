@@ -969,6 +969,9 @@ app.get '/user/stats', ensureAuthenticated,  (req, res) ->
 app.get '/', (req, res) -> 
 	res.render './info/home.jade', {user:req.user}
 
+app.post '/', (req, res) ->
+	res.redirect '/' + req.body.roomput
+
 app.get '/about', (req, res) ->
 	res.render './info/about.jade', {user:req.user}
 
