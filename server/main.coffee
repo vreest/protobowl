@@ -444,9 +444,9 @@ class SocketQuizPlayer extends QuizPlayer
 		@name = names.generateName()
 
 	disco: (data) ->
-		if data.old_socket and io.sockets.socket(data.old_socket)
-			io.sockets.socket(data.old_socket).disconnect()
-		if !data.version or data.version < 5
+		if data?.old_socket and io.sockets.socket(data?.old_socket)
+			io.sockets.socket(data?.old_socket)?.disconnect()
+		if !data?.version or data?.version < 5
 			io.sockets.emit 'force_application_update', +new Date
 			io.sockets.emit 'application_update', +new Date
 			io.sockets.socket(sock).disconnect() for sock in @sockets
@@ -584,9 +584,10 @@ user_count_log = (message, room_name) ->
 	latencies = []
 	for name, room of rooms
 		for uid, user of room.users
-			online_count++ if user.online()
-			active_count++ if user.active()
-			latencies.push(user._latency[0]) if user._latency
+			if user.online()
+				online_count++ 
+				active_count++ if user.active()
+				latencies.push(user._latency[0]) if user._latency
 
 	log 'user_count', { online: online_count, active: active_count, message: message, room: room_name, avg_latency: Avg(latencies), std_latency: StDev(latencies)}
 
@@ -612,6 +613,7 @@ io.sockets.on 'connection', (sock) ->
 	return sock.disconnect() unless headers.referer and headers.cookie
 	config = url.parse(headers.referer, true)
 	
+
 	if config.host isnt 'protobowl.com' and app.settings.env isnt 'development' and config.protocol is 'http:'
 		config.host = 'protobowl.com'
 		sock.emit 'application_update', +new Date
@@ -631,13 +633,19 @@ io.sockets.on 'connection', (sock) ->
 	# configger the things which are derived from said parsed stuff
 	room_name = config.pathname.replace(/^\/*/g, '').toLowerCase()
 	question_type = (if room_name.split('/').length is 2 then room_name.split('/')[0] else 'qb')
+	
+	publicID = sha1(cookie.protocookie + room_name)
+
+	if is_ninja and config.pathname is '/scalar.html'
+		room_name = "room-#{Math.floor(Math.random() * 42)}"
+		publicID = ("#{Math.floor(Math.random() * 20)}0000000000000000000000000000000000000000").slice(0, 40)
+		is_ninja = false
 
 	# get the room
 	load_room room_name, (room, is_new) ->
 		if is_new
 			room.type = question_type
 
-		publicID = sha1(cookie.protocookie + room_name)
 		if is_ninja
 			publicID = "__secret_ninja_#{Math.random().toFixed(4).slice(2)}" 
 			if 'id' of config.query
@@ -893,7 +901,7 @@ app.get '/stalkermode', (req, res) ->
 	util = require('util')
 	latencies = []
 	for name, room of rooms
-		latencies.push(user._latency[0]) for id, user of room.users when user._latency
+		latencies.push(user._latency[0]) for id, user of room.users when user._latency and user.online()
 
 
 	res.render './ninja/admin.jade', {

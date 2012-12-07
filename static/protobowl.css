@@ -1,4 +1,4 @@
-/* protobowl_css_build_date: Thu Dec 06 2012 22:25:00 GMT-0500 (EST) */
+/* protobowl_css_build_date: Thu Dec 06 2012 23:54:18 GMT-0500 (EST) */
 article,aside,details,figcaption,figure,footer,header,hgroup,nav,section{display:block;}
 audio,canvas,video{display:inline-block;*display:inline;*zoom:1;}
 audio:not([controls]){display:none;}
@@ -1043,6 +1043,7 @@ input[type=range]{vertical-align:middle;height:30px;}
 .banhammer:hover{opacity:0.8;}
 .annotations{word-wrap:break-word;}.annotations .guess .username{font-weight:bold;}
 .annotations .author{font-weight:bold;}
+.annotations .user-prefix{color:#0088cc;padding-right:5px;}
 .annotations .recipient{font-weight:bold;color:green;}
 .annotations .typing{opacity:0.7;}
 .annotations .log{font-style:italic;}
