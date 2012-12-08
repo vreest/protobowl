@@ -185,13 +185,6 @@ connect_database = (host, db_name) ->
 userDB = connect_database 'localhost', 'proto_user_db'
 
 ## -------------------------- Schemas ---------------------- ##
-user_schema = new mongoose.Schema {
-	email: String
-	, stash: [cache_schema]
-	, username: String
-	ninja: Number
-}
-
 cache_schema = new mongoose.Schema {
 	sid: String
 	, early: Number
@@ -201,9 +194,18 @@ cache_schema = new mongoose.Schema {
 	rfalse: Number
 }
 
+user_schema = new mongoose.Schema {
+	email: String
+	, stash: [cache_schema]
+	, username: String
+	ninja: Number
+}
+
 event_schema = new mongoose.Schema {
 	uid: String
 	, sid: String
+	, room: String
+	, date: String
 	, early: Boolean
 	, seen: Number
 	, tspent: Number
@@ -251,17 +253,19 @@ execute_query = (query, callback) ->
 	query.exec (err, data) ->
 		callback(data)
         
-create_event = (uid, sid, early, seen, tspent, answer, category, guess, ruling) ->
+create_event = (uid, sid, room, date, early, seen, tspent, answer, category, guess, ruling) ->
 		aBuzz = new Event({	
 								"uid":uid
 								, "sid":sid
+								, "room":room
+								, "date":date
 								, "early":early
 								, "seen":seen
 								, "tspent":tspent
 								, "answer":answer
 								, "category":category
 								, "guess":guess
-								, "ruling":ruling
+								"ruling":ruling
 							 })
 
 		aBuzz.save (err) ->
@@ -399,14 +403,16 @@ class SocketQuizRoom extends QuizRoom
 			log 'buzz', [@name, @attempt.user + '-' + @users[@attempt.user]?.name, @attempt.text, @answer, ruling]
 
 			create_event	@attempt.user
-							, @name + '-' + @attempt.user + '-' + new Date()
+							, @attempt.user
+							, @name 
+							, new Date()
 							, @users[@attempt.user].early 
 							, @users[@attempt.user].seen 
 							, @users[@attempt.user].time_spent 
 							, @answer
 							, @question.category
 							, @attempt.text
-							, ruling
+							ruling
 						
 		super(session)
 
@@ -974,11 +980,11 @@ app.get '/user/profile', ensureAuthenticated, (req, res) ->
 app.get '/user/stats', ensureAuthenticated,  (req, res) -> 
 	res.render './user/stats.jade', {user:req.user}
 
+app.get '/user/settings', ensureAuthenticated, (req, res) ->
+	res.render './user/settings/jade', {user:req.user}
+
 app.get '/', (req, res) -> 
 	res.render './info/home.jade', {user:req.user}
-
-app.post '/', (req, res) ->
-	res.redirect '/' + req.body.roomput
 
 app.get '/about', (req, res) ->
 	res.render './info/about.jade', {user:req.user}

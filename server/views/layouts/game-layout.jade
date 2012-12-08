@@ -24,16 +24,14 @@ html(lang="en")
 							a.btn.btn-primary.new-room(href='/new') New Room
 							a.btn.btn-primary.dropdown-toggle(data-toggle="dropdown")
 								span.caret
-							ul(style="padding: 15px; padding-bottom: 0px;").dropdown.dropdown-menu
-								form(action='/', method='POST')
-									#name
-										label(for='roomput') Room Name: 
-											br
-											br
-											input#roomput(name='roomput', type='text').input
-									#submit
-										input(type='submit').btn.btn-primary.btn-xlarge Submit
-
+							ul.dropdown-menu(role="menu")
+								li(style="padding: 7px")
+									h4 Join a public room
+								li
+									.divider
+									a(href="/lobby") lobby
+									a(href="/hsquizbowl") hsquizbowl
+						
 						div.pull-right
 							ul#userinfo.nav(role="navigation", style="display:#{typeof name == 'undefined' ? '' : 'none'}")
 								li#signin(style="display:#{user ? 'none' : ''}")
@@ -48,11 +46,14 @@ html(lang="en")
 										li
 											a(href="/user/profile") Profile
 											a(href="/user/stats") Stats
-											li.divider
+										li
+											.divider
 											a(href="#") Keybindings
-											li.divider
+										li
+											.divider
 											a(href="#") Settings
-											li.divider
+										li
+											.divider
 											a(href="/logout") Logout
 				
 
