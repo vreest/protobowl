@@ -273,9 +273,9 @@ passport.use 'browserid', new BrowserID {audience: 'localhost:5555'},
 				done null, theData
 			else
 				newUser = new User({    
-										'email':email
-										, 'username':'randomusername'
-										, 'ninja':0,
+										'email':email,
+										'username':'randomusername',
+										'ninja':0,
 								   })
 				newUser.save (err) ->
 					console.log(err)
@@ -975,9 +975,10 @@ app.get '/user/settings', ensureAuthenticated, (req, res) ->
 	res.render './user/settings.jade', {user:req.user}
 
 app.post '/set-settings', ensureAuthenticated, (req, res) ->
-	console.log(req.user.email)
-	#Event.update({"uid":sha1(req.email)}, {$set: {"username":req.username}}).exec()
-
+	req.user.username = req.body.username
+	User.update({"email":req.user.email}, {$set: {"username":req.body.username}}).exec()
+	res.redirect '/user/settings'
+	
 
 app.get '/', (req, res) -> 
 	res.render './info/home.jade', {user:req.user}

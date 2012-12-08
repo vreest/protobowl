@@ -1,4 +1,4 @@
-/* protobowl_css_build_date: Sat Dec 08 2012 13:02:22 GMT-0500 (EST) */
+/* protobowl_css_build_date: Sat Dec 08 2012 15:39:04 GMT-0500 (EST) */
 article,aside,details,figcaption,figure,footer,header,hgroup,nav,section{display:block;}
 audio,canvas,video{display:inline-block;*display:inline;*zoom:1;}
 audio:not([controls]){display:none;}
@@ -1003,7 +1003,6 @@ a.label:hover,a.badge:hover{color:#ffffff;text-decoration:none;cursor:pointer;}
 .featurette-image.pull-right{margin-left:40px;}
 .featurette-heading{font-size:50px;font-weight:300;line-height:1;letter-spacing:-1px;}
 @media (max-width:979px){.featurette{height:auto;padding:0;} .featurette-image.pull-left,.featurette-image.pull-right{display:block;float:none;max-width:40%;margin:0 auto 20px;}}@media (max-width:767px){.marketing .span4+.span4{margin-top:40px;} .featurette-heading{font-size:30px;} .featurette .lead{font-size:18px;line-height:1.5;}}#main-contain{margin-top:10px;}
-.navbar{margin-bottom:0px;}
 hr.soften{height:1px;margin:70px 0;background-image:-webkit-linear-gradient(left, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0));background-image:-moz-linear-gradient(left, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0));background-image:-ms-linear-gradient(left, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0));background-image:-o-linear-gradient(left, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0));border:0;}
 body{background:#fbfbfb;}
 .timer{font-size:250%;text-align:center;margin-bottom:10px;margin-top:10px;}.timer .fraction{font-size:50%;}

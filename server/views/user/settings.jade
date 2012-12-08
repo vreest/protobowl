@@ -1,4 +1,4 @@
-extends ../layouts/normal-layout
+extends ../layouts/user-layout
 
 
 block title
@@ -11,7 +11,36 @@ block content
 		div.control-group
 			label.control-label(for="username") Username: 
 			div.controls
-				input(type='text', name="username", placeholder="#{user.username}").input-large#username
+				input(type='text', name="username", value="#{user.username}").input-large#username
+		div.control-group
+			label.control-label(for="")
 		div.control-group
 			div.controls
 				button(type='submit').btn#feedbacksubmit Submit
+
+	hr
+
+	blockquote
+		p Look at the stars
+		p Look how they shine for you
+		p And everything you do
+		p Yeah, they were all yellow
+		small Coldplay
+
+	hr
+
+	blockquote
+		p For any complex problem, there is always a solution that is simple, clear, and wrong
+		small H. L. Mencken
+
+	hr
+
+	blockquote
+		p Welcome to Kansas City, a place where bandwidth flows like water
+		small Google Fiber Keynote
+
+	hr
+
+	blockquote
+		p It's a brand new day and the sun is high, all the birds are singing that you're gunna die
+		small Dr. Horrible
