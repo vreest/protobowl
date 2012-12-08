@@ -87,7 +87,7 @@ if app.settings.env is 'development'
 					}
 
 					source_list.push {
-						hash: sha1(css),
+						hash: sha1(css + ''),
 						code: "/* protobowl_css_build_date: #{compile_date} */\n#{css}",
 						err: err,
 						file: "static/protobowl.css"
@@ -100,10 +100,9 @@ if app.settings.env is 'development'
 		compileCoffee = ->
 			file = file_list.shift()
 			return saveFiles() if !file
-			
 			snockets.getConcatenation "client/#{file}.coffee", minify: true, (err, js) ->
 				source_list.push {
-					hash: sha1(js),
+					hash: sha1(js + ''),
 					code: "protobowl_#{file}_build = '#{compile_date}';\n#{js}", 
 					err: err, 
 					file: "static/#{file}.js"
@@ -156,6 +155,7 @@ if app.settings.env is 'development'
 	
 	fs.watch "shared", watcher
 	fs.watch "client", watcher
+	fs.watch "client/lib", watcher
 	fs.watch "client/less", watcher
 	fs.watch "server/views/game/room.jade", watcher
 
@@ -205,7 +205,7 @@ event_schema = new mongoose.Schema {
 	uid: String
 	, sid: String
 	, room: String
-	, date: String
+	, date: Number
 	, early: Boolean
 	, seen: Number
 	, tspent: Number
@@ -253,20 +253,8 @@ execute_query = (query, callback) ->
 	query.exec (err, data) ->
 		callback(data)
         
-create_event = (uid, sid, room, date, early, seen, tspent, answer, category, guess, ruling) ->
-		aBuzz = new Event({	
-								"uid":uid
-								, "sid":sid
-								, "room":room
-								, "date":date
-								, "early":early
-								, "seen":seen
-								, "tspent":tspent
-								, "answer":answer
-								, "category":category
-								, "guess":guess
-								"ruling":ruling
-							 })
+create_event = (data) ->
+		aBuzz = new Event(data)
 
 		aBuzz.save (err) ->
 			console.log(err)
@@ -401,18 +389,20 @@ class SocketQuizRoom extends QuizRoom
 		if @attempt?.user
 			ruling = @check_answer @attempt.text, @answer, @question
 			log 'buzz', [@name, @attempt.user + '-' + @users[@attempt.user]?.name, @attempt.text, @answer, ruling]
-
-			create_event	@attempt.user
-							, @attempt.user
-							, @name 
-							, new Date()
-							, @users[@attempt.user].early 
-							, @users[@attempt.user].seen 
-							, @users[@attempt.user].time_spent 
-							, @answer
-							, @question.category
-							, @attempt.text
-							ruling
+			user = @users[@attempt.user]
+			create_event {
+				"uid": @attempt.user,
+				"sid": user.sid || user.id,
+				"room": @name,
+				"date": Date.now(),
+				"early": user.early,
+				"seen":  user.seen,
+				"tspent": user.time_spent,
+				"answer": @answer,
+				"category": @question.category,
+				"guess": @attempt.text,
+				"ruling": ruling
+			}
 						
 		super(session)
 
@@ -429,7 +419,8 @@ class SocketQuizRoom extends QuizRoom
 			@users[new_id] = @users[id]
 			@users[new_id].id = new_id
 			delete @users[id]
-			
+		
+		@users[new_id].sid = id
 		@emit 'rename_user', {old_id: id, new_id: new_id}
 		@sync(1)
 		
@@ -968,10 +959,10 @@ app.get '/new', (req, res) -> res.redirect '/' + names.generatePage()
 
 ensureAuthenticated = (req, res, next) ->
 	return next() if req.isAuthenticated()
-	res.redirect '/signin'
+	res.redirect "/signin?return=#{encodeURIComponent(req.url)}"
 
 app.get '/signin', (req, res) -> 
-	return res.redirect '/' if req.user
+	return res.redirect(req.query.return || '/') if req.user
 	res.render './info/signin.jade', {user:req.user}
 
 app.get '/user/profile', ensureAuthenticated, (req, res) -> 
@@ -981,7 +972,12 @@ app.get '/user/stats', ensureAuthenticated,  (req, res) ->
 	res.render './user/stats.jade', {user:req.user}
 
 app.get '/user/settings', ensureAuthenticated, (req, res) ->
-	res.render './user/settings/jade', {user:req.user}
+	res.render './user/settings.jade', {user:req.user}
+
+app.post '/set-settings', ensureAuthenticated, (req, res) ->
+	console.log(req.user.email)
+	#Event.update({"uid":sha1(req.email)}, {$set: {"username":req.username}}).exec()
+
 
 app.get '/', (req, res) -> 
 	res.render './info/home.jade', {user:req.user}
@@ -1000,10 +996,10 @@ app.post '/force-feedback', (req, res) ->
 
 app.get '/logout', (req, res) ->
 	req.session.destroy()
-	res.redirect(req.params.return || '/')
+	res.redirect(req.query.return || '/')
 
 app.post '/auth/browserid', passport.authenticate('browserid', { failureRedirect: '/login' }), (req, res) ->
-	res.redirect('/')
+	res.redirect(req.body.return || '/')
 
 app.post '/auth/link', (req, res, next) ->
 	passport.authenticate('browserid', (err, user, info) ->

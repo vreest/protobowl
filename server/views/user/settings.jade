@@ -6,3 +6,12 @@ block title
 
 block content
 	h1 There are settings here, you just have to change the settings to turn them on!
+
+	form(action='/set-settings', method='post').form-horizontal
+		div.control-group
+			label.control-label(for="username") Username: 
+			div.controls
+				input(type='text', name="username", placeholder="#{user.username}").input-large#username
+		div.control-group
+			div.controls
+				button(type='submit').btn#feedbacksubmit Submit

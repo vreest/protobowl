@@ -6,7 +6,9 @@ block scripts
 		script
 			logged_in_user = "#{user.email}";
 	form#browserid(action="/auth/browserid", method="post", style="display:none")
-		input(type="hidden", name="assertion")
+		input(type="hidden", name="assertion", id="assertion")
+		input(type="hidden", name="return", id="return")
+
 	script(src="/auth.js")
 
 	script(type="text/javascript")

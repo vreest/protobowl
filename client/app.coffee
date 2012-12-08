@@ -1,5 +1,5 @@
-#= require modernizr.js
-#= require bootstrap.js
+#= require ./lib/modernizr.js
+#= require ./lib/bootstrap.js
 #= require plugins.coffee
 #= require annotations.coffee
 #= require buttons.coffee

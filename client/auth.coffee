@@ -1,5 +1,5 @@
-#= require modernizr.js
-#= require bootstrap.js
+#= require ./lib/modernizr.js
+#= require ./lib/bootstrap.js
 
 
 navigator.id.watch {
@@ -9,7 +9,8 @@ navigator.id.watch {
 			$('#userinfo').fadeOut 'normal', ->
 				wait_id(assertion)
 		else
-			$("form#browserid input").val(assertion)
+			$("form#browserid #assertion").val(assertion)
+			$("form#browserid #return").val(location.pathname + location.search)
 			$("form#browserid").submit()
 
 	onlogout: ->
