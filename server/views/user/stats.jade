@@ -4,8 +4,28 @@ extends ../layouts/user-layout
 block title
 	title Stats - ProtoBowl
 
-block content
+block three
+	.well.sidebar-nav
+		ul.nav.nav-list
+			li.nav-header User
+			li
+				a(href="/user/profile") Profile
+			li.active
+				a(href="/user/stats") Statistics
+			li
+				a(href="/user/settings") Settings
+			//- li
+			//- 	a(href="/user/achievements") Achievements
+			//- li.nav-header Social
+			//- li
+			//- 	a(href="/protofrands") Protofrands
+			//- li
+			//- 	a(href="/protofrands/leaderness") Leaderboard
+			//- li
+			//- 	a(href="/protofrands/chat") Frandchat 
 
+
+block nine
 	h2 Hello #{user.username}
 
 	h4 LIKE SABERMETRICS D00d?

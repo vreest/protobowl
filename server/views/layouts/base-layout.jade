@@ -16,51 +16,54 @@ html(lang="en")
 			_gaq.push(['_trackPageview']);
 
 		body
-			div.wrapper
-				div.navbar
-					div.navbar-inner
-						div.container
-							a.brand(href="/")
-								strong Proto
-								| Bowl 
-								em.motto.hidden-phone(style="font-size: small")
-									| doing one thing and doing it acceptably well
+			div.page-content-wrapper
+				header.header
+					div.navbar
+						div.navbar-inner
+							div.container
+								a.brand(href="/")
+									strong Proto
+									| Bowl 
+									em.motto.hidden-phone(style="font-size: small")
+										| doing one thing and doing it acceptably well
 
-							div.pull-right.btn-group
-								a.btn.btn-primary.new-room(href='/new') New Room
-								a.btn.btn-primary.dropdown-toggle(data-toggle="dropdown")
-									span.caret
-								ul.dropdown-menu(role="menu")
-									li
-										a(href="/lobby") lobby
-										a(href="/hsquizbowl") hsquizbowl
+								div.pull-right.btn-group
+									a.btn.btn-primary.new-room(href='/new') New Room
+									a.btn.btn-primary.dropdown-toggle(data-toggle="dropdown")
+										span.caret
+									ul.dropdown-menu(role="menu")
+										li
+											a(href="/lobby") lobby
+											a(href="/hsquizbowl") hsquizbowl
 
-							div.pull-right
-								ul#userinfo.nav(role="navigation", style="display:#{typeof name == 'undefined' ? '' : 'none'}")
-									li#signin(style="display:#{user ? 'none' : ''}")
-										a(href="/signin")
-											i.icon-signin
-											| Sign In
-									li#user.dropdown(style="display:#{user ? '' : 'none'}")
-										a.dropdown-toggle(href="#", role="button", data-toggle="dropdown")
-											| <span class="user-name">#{user && user.username}</span>
-											b.caret
-										ul.dropdown-menu(role="menu")
-											li
-												a(href="/user/profile") Profile
-												a(href="/user/stats") Stats
-											li
-												.divider
-												a(href="#") Keybindings
-											li
-												.divider
-												a(href="/user/settings") Settings
-											li
-												.divider
-												a(href="/logout") Logout
-				block contained-content
-					.container
-						
+								div.pull-right
+									ul#userinfo.nav(role="navigation", style="display:#{typeof name == 'undefined' ? '' : 'none'}")
+										li#signin(style="display:#{user ? 'none' : ''}")
+											a(href="/signin")
+												i.icon-signin
+												| Sign In
+										li#user.dropdown(style="display:#{user ? '' : 'none'}")
+											a.dropdown-toggle(href="#", role="button", data-toggle="dropdown")
+												| <span class="user-name">#{user && user.username}</span>
+												b.caret
+											ul.dropdown-menu(role="menu")
+												li
+													a(href="/user/profile") Profile
+													a(href="/user/stats") Stats
+												li
+													.divider
+													a(href="#") Keybindings
+												li
+													.divider
+													a(href="/user/settings") Settings
+												li
+													.divider
+													a(href="/logout") Logout
+				
+				
+				.container
+					block contained-content
+
 				block content
 
 
