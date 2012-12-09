@@ -35,7 +35,6 @@ server = http.createServer(app)
 app.set 'views', "server/views" # directory where the jade files are
 app.set 'trust proxy', true
 
-
 io = require('socket.io').listen(server)
 
 io.configure 'production', ->
@@ -160,7 +159,7 @@ if app.settings.env is 'development'
 	fs.watch "client", watcher
 	fs.watch "client/lib", watcher
 	fs.watch "client/less", watcher
-	fs.watch "server/views/game/room.jade", watcher
+	fs.watch "server/views", watcher
 
 
 if app.settings.env is 'production' and remote.deploy
