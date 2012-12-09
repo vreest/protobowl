@@ -124,7 +124,6 @@ if app.settings.env is 'development'
 			if error_message
 				io.sockets.emit 'debug', error_message
 				console.log error_message
-				scheduledUpdate = null
 			else
 				saved_count = 0
 				for i in source_list

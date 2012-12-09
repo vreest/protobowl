@@ -21,6 +21,8 @@ html(lang="en")
 					div.navbar
 						div.navbar-inner
 							div.container
+								a.show-sidebar
+						        	i.icon-circle-arrow-right
 								a.brand(href="/")
 									strong Proto
 									| Bowl 
@@ -67,13 +69,14 @@ html(lang="en")
 				block content
 
 
+
 			script(src="https://login.persona.org/include.js")
 
 			script(src="//ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js")
-			// if(typeof jQuery == 'undefined') document.write(unescape("%3Cscript%20src%3D%22lib/jquery.min.js%22%3E%3C/script%3E"));
-
 
 			block scripts
+
+			script(src="/auth.js")
 
 			script
 				(function() {

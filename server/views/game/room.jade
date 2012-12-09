@@ -6,7 +6,7 @@ block title
 
 block contained-content
 	div.row
-		div.span9
+		div.span9.mainview
 			div.row(style="margin-bottom: 10px")
 				div.span9
 					div.form-horizontal
@@ -79,8 +79,8 @@ block contained-content
 				| Javascript engine. This application uses Javascript and WebSockets to keep the client and the 
 				| server synchronized in order to attain a better experience. 
 
-		div.span3
-			div.span3.thumbnail
+		div.span3.sidebar
+			div.span3.thumbnail.timer-widget
 				h5 
 					i.icon-time
 					| Timer 
@@ -257,5 +257,5 @@ block contained-content
 
 block scripts
 	script(src="/socket.io/socket.io.js")
-	
+	script(src="/auth.js")
 	script(src="/app.js")

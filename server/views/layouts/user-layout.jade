@@ -1,6 +1,4 @@
 extends base-layout
-extends base-layout
-
 
 block content
 	.container-fluid
@@ -13,3 +11,11 @@ block content
 			.span9
 				block nine
 				
+
+block scripts
+	if user
+		script
+			logged_in_user = "#{user.email}";
+	form#browserid(action="/auth/browserid", method="post", style="display:none")
+		input(type="hidden", name="assertion", id="assertion")
+		input(type="hidden", name="return", id="return")
