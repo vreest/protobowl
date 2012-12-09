@@ -35,6 +35,7 @@ server = http.createServer(app)
 app.set 'views', "server/views" # directory where the jade files are
 app.set 'trust proxy', true
 
+
 io = require('socket.io').listen(server)
 
 io.configure 'production', ->
@@ -44,8 +45,8 @@ io.configure 'production', ->
 
 io.configure 'development', ->
 	io.set "log level", 2
-	io.set "browser client minification", true
-	io.set "browser client gzip", true
+	io.set "browser client minification", false
+	io.set "browser client gzip", false
 
 journal_config = { host: 'localhost', port: 15865 }
 log_config = { host: 'localhost', port: 18228 }
@@ -100,6 +101,7 @@ if app.settings.env is 'development'
 		compileCoffee = ->
 			file = file_list.shift()
 			return saveFiles() if !file
+			
 			snockets.getConcatenation "client/#{file}.coffee", minify: true, (err, js) ->
 				source_list.push {
 					hash: sha1(js + ''),
@@ -144,6 +146,7 @@ if app.settings.env is 'development'
 			timehash = cache_text.match(/INSERT_DATE (.*?)\n/)?[1]?.split(" # ")?[1]
 			compileLess()
 			
+
 	watcher = (event, filename) ->
 		return if filename in ["offline.appcache", "protobowl.css", "app.js"]
 			
@@ -166,7 +169,7 @@ if app.settings.env is 'production' and remote.deploy
 	console.log 'set to deployment defaults'
     
 ### ------------- DATABASE CODE IS BASED HERE ------------------ ###
-#### -------- NOW ALL YOUR BASE ARE BELONG TO US -------------- ####
+#### -------- NOW ALL YOUR DATA ARE BELONG TO US -------------- ####
 
 #Database connection helper function
 connect_database = (host, db_name) ->
@@ -825,6 +828,7 @@ app.get '/stalkermode/logout', (req, res) ->
 	res.clearCookie 'protoauth'
 	res.redirect '/stalkermode'
 
+
 app.get '/stalkermode/user/:room/:user', (req, res) ->
 	u = rooms?[req.params.room]?.users?[req.params.user]
 	u2 = {}
@@ -853,12 +857,14 @@ app.post '/stalkermode/delete_room/:room', (req, res) ->
 	rooms[req.params.room] = new SocketQuizRoom(req.params.room)
 	res.redirect "/stalkermode/room/#{req.params.room}"
 
+
 app.post '/stalkermode/disco_room/:room', (req, res) ->
 	if rooms?[req.params.room]?.users
 		for id, u of rooms[req.params.room].users
 			for sock in u.sockets
 				io.sockets.socket(sock).disconnect()
 	res.redirect "/stalkermode/room/#{req.params.room}"
+
 
 app.post '/stalkermode/emit/:room/:user', (req, res) ->
 	u = rooms?[req.params.room]?.users?[req.params.user]
@@ -894,13 +900,24 @@ app.get '/stalkermode/hulk-smash', (req, res) ->
 	gammasave = Date.now()
 	res.redirect '/stalkermode'
 
+
 app.get '/stalkermode', (req, res) ->
 	util = require('util')
+	os = require 'os'
 	latencies = []
 	for name, room of rooms
 		latencies.push(user._latency[0]) for id, user of room.users when user._latency and user.online()
-
-
+	os_info = {
+		hostname: os.hostname(),
+		type: os.type(),
+		platform: os.platform(),
+		arch: os.arch(),
+		release: os.release(),
+		loadavg: os.loadavg(),
+		uptime: os.uptime(),
+		totalmem: os.totalmem(),
+		freemem: os.freemem()
+	}
 	res.render './ninja/admin.jade', {
 		env: app.settings.env,
 		mem: util.inspect(process.memoryUsage()),
@@ -911,6 +928,8 @@ app.get '/stalkermode', (req, res) ->
 		std_latency: StDev(latencies),
 		cookie: req.protocookie,
 		queue: Object.keys(journal_queue).length,
+		os: os_info,
+		os_text: util.inspect(os_info),
 		rooms
 	}
 

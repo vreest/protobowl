@@ -1,10 +1,10 @@
 #= require ./lib/modernizr.js
 #= require ./lib/bootstrap.js
+#= require ./lib/time.coffee
 #= require plugins.coffee
 #= require annotations.coffee
 #= require buttons.coffee
 #= require render.coffee
-#= require time.coffee
 #= require auth.coffee
 #= require ../shared/player.coffee
 #= require ../shared/room.coffee
@@ -407,3 +407,4 @@ do -> # isolate variables from globals
 	if window.applicationCache
 		for name in ['cached', 'checking', 'downloading', 'error', 'noupdate', 'obsolete', 'progress', 'updateready']
 			applicationCache.addEventListener name, cache_event
+
