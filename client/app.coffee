@@ -1,6 +1,8 @@
 #= require ./lib/modernizr.js
 #= require ./lib/bootstrap.js
 #= require ./lib/time.coffee
+#= require ./lib/jquery.mobile.custom.js
+
 #= require plugins.coffee
 #= require annotations.coffee
 #= require buttons.coffee
@@ -38,53 +40,104 @@ offline_startup = ->
 
 		load_bookmarked_questions()
 
-	setTimeout ->
+		initialize_fallback() if initialize_fallback?
+
+setTimeout ->
+	if room.active_count() <= 1
 		chatAnnotation({text: 'Feeling lonely offline? Just say "I\'m Lonely" and talk to me!' , user: '__protobot', done: true})
-	, 30 * 1000
+, 30 * 1000
+
+
+disconnect_notice = ->
+	initialize_fallback() if initialize_fallback?
+
+	$('#reload, #disconnect, #reconnect').hide()
+	$('#reconnect').show()
+	room.attempt = null if room.attempt?.user isnt me.id # get rid of any buzzes
+	line = $('<div>').addClass 'alert alert-error'
+	line.append $('<p>').append("You were ", $('<span class="label label-important">').text("disconnected"), 
+			" from the server for some reason. ", $('<em>').text(new Date))
+	line.append $('<p>').append("This may be due to a drop in the network 
+			connectivity or a malfunction in the server. The client will automatically 
+			attempt to reconnect to the server and in the mean time, the app has automatically transitioned
+			into <b>offline mode</b>. You can continue playing alone with a limited offline set
+			of questions without interruption. However, you might want to try <a href=''>reloading</a>.")
+	addImportant $('<div>').addClass('log disconnect-notice').append(line)
 
 sock = null
 has_connected = false
 
 online_startup = ->
-	# if !url and location.hostname is 'protobowl.com'
-	# 	url = 'https://protobowl.jitsu.com:443/'
-	# 	# try the secure one when on nodejitsu to evade school proxies
-
-	sock = io.connect location.hostname, {
-		"connect timeout": 4000
-	}
-
-	sock.on 'connect', ->
-		has_connected = true
+	reconnect = ->
 		$('.disconnect-notice').slideUp()
 		# allow the user to reload/disconnect/reconnect
 		$('#reload, #disconnect, #reconnect').hide()
 		$('#disconnect').show()
 
+
+	select_socket = (socket) ->
+		sock = socket
+		for name, fn of room.__listeners
+			sock.on name, fn
+		
+		cookie = jQuery.cookie('protocookie')
+
+		sock.emit 'join', {
+			cookie,
+			question_type: room.type,
+			room_name: room.name,
+			old_socket: localStorage.old_socket,
+			version: 6
+		}
+		
+		sock.on 'disconnect', disconnect_notice
+
+		reconnect()
+
+		localStorage.old_socket = sock.socket.sessionid
+
 		load_bookmarked_questions()
+	
+	# so some firewalls block unsecure websockets but allow secure stuff
+	# so try to connect to both!
+	insecure_socket = io.connect location.hostname, {
+		"connect timeout": 3000, 
+		"force new connection": true
+	}
 
-		me.disco { old_socket: localStorage.old_socket, version: 5 } # tell the server the client version to allow the server to disconnect
+	if location.protocol is 'http:' and location.hostname isnt 'localhost'
+		secure_socket = io.connect 'https://protobowl.jitsu.com/', {
+			"port": 443,
+			"connect timeout": 5000,
+			"force new connection": true
+		}
+		secure_socket.on 'connect', ->
+			if sock
+				if sock is secure_socket
+					reconnect()
+				else
+					secure_socket.disconnect()
+					secure_socket.removeAllListeners()
+			else
+				select_socket secure_socket
 
-	sock.on 'disconnect', ->
-		$('#reload, #disconnect, #reconnect').hide()
-		$('#reconnect').show()
-		room.attempt = null if room.attempt?.user isnt me.id # get rid of any buzzes
-		line = $('<div>').addClass 'alert alert-error'
-		line.append $('<p>').append("You were ", $('<span class="label label-important">').text("disconnected"), 
-				" from the server for some reason. ", $('<em>').text(new Date))
-		line.append $('<p>').append("This may be due to a drop in the network 
-				connectivity or a malfunction in the server. The client will automatically 
-				attempt to reconnect to the server and in the mean time, the app has automatically transitioned
-				into <b>offline mode</b>. You can continue playing alone with a limited offline set
-				of questions without interruption. However, you might want to try <a href=''>reloading</a>.")
-		addImportant $('<div>').addClass('log disconnect-notice').append(line)
+	insecure_socket.on 'connect', ->
+		if sock
+			if sock is insecure_socket
+				reconnect()
+			else
+				insecure_socket.disconnect()
+				insecure_socket.removeAllListeners()
+		else
+			select_socket insecure_socket
+
 
 if io?
 	online_startup()
 
 	setTimeout ->
 		$('#slow').slideDown() if !has_connected
-	, 1000 * 3
+	, 1000 * 2
 
 	setTimeout initialize_offline, 1000
 else
@@ -110,16 +163,17 @@ class QuizPlayerClient extends QuizPlayer
 	online: -> @online_state
 
 class QuizPlayerSlave extends QuizPlayerClient
-	
 	# encapsulate is such a boring word, well actually, it's pretty cool
 	# but you should be allowed to envelop actions like captain kirk 
 	# does to a mountain.
 
 	envelop_action: (name) ->
-		master_action = this[name]
+		# master_action = this[name]
 		this[name] = (data, callback) ->
 			if connected()
 				sock.emit(name, data, callback)
+			else if fallback_connection? and fallback_connection()
+				fallback_emit name, data, callback
 			else
 				# It matters not how strait the gate,
 				# How charged with punishments the scroll.
@@ -127,7 +181,8 @@ class QuizPlayerSlave extends QuizPlayerClient
 				# I am the captain of my soul. 
 
 				# TODO: possibly delay this call until certain offline component is loaded
-				master_action.call(this, data, callback)
+				# master_action.call(this, data, callback)
+				room.users[me.id][name](data, callback)
 
 	constructor: (room, id) ->
 		super(room, id)
@@ -146,7 +201,10 @@ class QuizPlayerSlave extends QuizPlayerClient
 class QuizRoomSlave extends QuizRoom
 	# dont know what to change
 	emit: (name, data) ->
-		@__listeners[name](data)
+		if fallback_connection? and fallback_connection()
+			fallback_broadcast(name, data)
+		else
+			@__listeners[name](data)
 
 	constructor: (name) ->
 		super(name)
@@ -178,11 +236,13 @@ class QuizRoomSlave extends QuizRoom
 
 
 room = new QuizRoomSlave()
+room.name = location.pathname.replace(/^\/*/g, '').toLowerCase()
+room.type = (if room.name.split('/').length is 2 then room.name.split('/')[0] else 'qb')
 me = new QuizPlayerSlave(room, 'temporary')
 
 # look at all these one liner events!
 listen = (name, fn) ->
-	sock.on name, fn if sock?
+	# sock.on name, fn if sock?
 	room.__listeners[name] = fn
 
 # probably should figure out some more elegant way to do things, but then again
@@ -202,7 +262,8 @@ listen 'throttle', (data) ->
 listen 'rename_user', ({old_id, new_id}) ->
 	if me.id is old_id
 		me.id = new_id
-		room.users[me.id] = me
+		room.users[me.id] = room.users[old_id]
+
 	$(".user-#{old_id}").removeClass("user-#{old_id}").addClass("user-#{new_id}")
 	delete room.users[old_id]
 
@@ -212,8 +273,12 @@ listen 'delete_user', (id) ->
 	renderUsers()
 
 listen 'joined', (data) ->
+	has_connected = true
+	$('#slow').slideUp()
+
 	me.id = data.id
-	room.users[me.id] = me
+	
+	room.users[me.id] = new QuizPlayerClient(room, me.id)
 
 	me.name = data.name
 
@@ -232,14 +297,10 @@ listen 'joined', (data) ->
 		else
 			localStorage.username = data.name
 
-	$('#slow').slideUp()
-
 	$('.actionbar button').disable false
 
 	$('#username').val me.name
 	$('#username').disable false
-
-
 
 
 sync_offsets = []
@@ -270,22 +331,22 @@ synchronize = (data) ->
 
 			user_blacklist = ['id']
 			for user in data.users
-				if user.id is me.id
-					# console.log "it's me, mario!"
-					room.users[user.id] = me
-				else
-					unless user.id of room.users
+				unless user.id of room.users
 						room.users[user.id] = new QuizPlayerClient(room, user.id)
 
 				for attr, val of user when attr not in user_blacklist
 					room.users[user.id][attr] = val
+			
+			# me != users[me.id] 
+			# that's a fairly big change that is being implemented
+
+			if me.id of data.users
+				for attr, val of data.users[me.id] when attr not in user_blacklist
+					me[attr] = val
 
 	renderParameters() if 'difficulties' of data
-
 	renderUpdate()
-
 	renderPartial()
-
 	
 	if last_freeze isnt room.time_freeze
 		last_freeze = room.time_freeze
@@ -302,10 +363,16 @@ synchronize = (data) ->
 
 	renderUsers() if 'users' of data
 	
-
+# basic statistical methods for statistical purposes
 Avg = (list) -> Sum(list) / list.length
 Sum = (list) -> s = 0; s += item for item in list; s
 StDev = (list) -> mu = Avg(list); Math.sqrt Avg((item - mu) * (item - mu) for item in list)
+
+# so i hears that robust statistics are bettrawr, so uh, heres it is
+Med = (list) -> m = list.sort((a, b) -> a - b); m[Math.floor(m.length/2)] || 0
+IQR = (list) -> m = list.sort((a, b) -> a - b); (m[~~(m.length*0.75)]-m[~~(m.length*0.25)]) || 0
+MAD = (list) -> m = list.sort((a, b) -> a - b); Med(Math.abs(item - mu) for item in m)
+
 
 
 compute_sync_offset = ->
@@ -392,6 +459,8 @@ cache_event = ->
 			$('#cachestatus').text 'Checking'
 
 do -> # isolate variables from globals
+
+	# listen for hiddens
 	if document.hidden? then hidden = 'hidden'; event = 'visibilitychange'
 	else if document.mozHidden? then hidden = 'mozHidden'; event = 'mozvisibilitychange'
 	else if document.msHidden? then hidden = 'msHidden'; event = 'msvisibilitychange'
@@ -402,8 +471,6 @@ do -> # isolate variables from globals
 			me.set_idle document[hidden]
 		, false
 
-
-	# document.addEventListener listener
 	if window.applicationCache
 		for name in ['cached', 'checking', 'downloading', 'error', 'noupdate', 'obsolete', 'progress', 'updateready']
 			applicationCache.addEventListener name, cache_event

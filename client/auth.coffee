@@ -46,3 +46,5 @@ $("a[href='/logout']").click (e) ->
 	e.preventDefault()
 	navigator.id.logout()
 
+
+$('a[href="'+location.pathname+'"]').parent('li').addClass('active')

@@ -3,9 +3,28 @@ extends base-layout
 block content
 	.container-fluid
 		.row-fluid
-
 			.span3
-				block three
+				.well.sidebar-nav
+					ul.nav.nav-list
+						li.nav-header 
+							img(src='http://gravatar.com/avatar/' + hashed_email + "?s=50", style="padding-right:5px;")
+							|   #{user.username}
+						li.divider
+						li
+							a(href="/user/profile") Profile
+						li
+							a(href="/user/stats") Statistics
+						li
+							a(href="/user/settings") Settings
+						//- li
+						//- 	a(href="/user/achievements") Achievements
+						//- li.nav-header Social
+						//- li
+						//- 	a(href="/protofrands") Protofrands
+						//- li
+						//- 	a(href="/protofrands/leaderness") Leaderboard
+						//- li
+						//- 	a(href="/protofrands/chat") Frandchat 
 			
 
 			.span9
