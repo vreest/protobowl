@@ -5,17 +5,29 @@ block title
 	title Settings - Protobowl
 
 block nine
-	h1 There are settings here, you just have to change the settings to turn them on!
-
 	form(action='/set-settings', method='post').form-horizontal
-		div.control-group
+		.control-group
 			label.control-label(for="username") Username: 
-			div.controls
+			.controls
 				input(type='text', name="username", value="#{user.username}").input-large#username
-		div.control-group
-			label.control-label(for="")
-		div.control-group
-			div.controls
+		.control-group
+			label.control-label(for="gravatar_email") Gravatar Email: 
+			.controls
+				input(type='text', name="gravatar_email", value="#{user.gravatar_email}").input-large#gravatar_email
+		.control-group
+			label.control-label(for="real_name") Name:
+			.controls
+				input(type='text', name='real_name', value="#{user.name}").input-large#real_name
+		.control-group
+			label.control-label(for="location") Location:
+			.controls
+				input(type='text', name='location', value="#{user.location}").input-large#location
+		.control-group
+			label.control-label(for="bio") Bio:
+			.controls
+				textarea(type='text', name='bio', value="#{user.bio}").input-large#bio
+		.control-group
+			.controls
 				button(type='submit').btn#feedbacksubmit Submit
 
 	hr
@@ -47,6 +59,6 @@ block nine
 
 
 	hr
-		blockquote
-			p Do not try to bend the spoon - that's impossible. Instead, only try to realize the truth: there is no spoon.
-			small The Matrix
+	blockquote
+		p Do not try to bend the spoon - that's impossible. Instead, only try to realize the truth: there is no spoon.
+		small The Matrix

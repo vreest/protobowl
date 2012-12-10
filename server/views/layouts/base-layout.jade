@@ -76,6 +76,13 @@ html(lang="en")
 			script(src="//ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js")
 
 			block scripts
+				if user
+					script
+						logged_in_user = "#{user.email}";
+				form#browserid(action="/auth/browserid", method="post", style="display:none")
+					input(type="hidden", name="assertion", id="assertion")
+					input(type="hidden", name="return", id="return")
+
 
 			script(src="/auth.js")
 

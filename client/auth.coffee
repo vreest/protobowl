@@ -13,12 +13,16 @@ navigator.id.watch {
 			$("form#browserid #return").val(location.pathname + location.search)
 			$("form#browserid").submit()
 
+
 	onlogout: ->
+		console.log 'xxlogging out', logged_in_user, typeof logged_in_user
 		if window.logged_in_user
 			$('#userinfo').fadeOut()
 			window.location = "/logout?return=#{encodeURIComponent(window.location.href)}"
 		else
 			$('#userinfo').fadeIn()
+
+
 }
 
 wait_id = (assertion) ->
@@ -47,4 +51,4 @@ $("a[href='/logout']").click (e) ->
 	navigator.id.logout()
 
 
-$('a[href="'+location.pathname+'"]').parent('li').addClass('active')
+$('a[href="'+location.pathname+'"]').parent('li').addClass('active');

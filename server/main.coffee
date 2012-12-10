@@ -1001,6 +1001,9 @@ app.post '/set-settings', ensureAuthenticated, (req, res) ->
 	req.user.username = req.body.username
 	User.update({"email":req.user.email}, {$set: {"username":req.body.username}}).exec()
 	res.redirect '/user/settings'
+
+app.get '/user/library', ensureAuthenticated, (req, res) ->
+	res.render './user/library.jade', {user:req.user, hashed_email:md5(req.user.email)}
 	
 app.get '/', (req, res) -> 
 	res.render './info/home.jade', {user:req.user}
