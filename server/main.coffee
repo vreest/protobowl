@@ -43,7 +43,7 @@ io.configure 'production', ->
 	io.set "browser client minification", true
 	io.set "browser client gzip", true
 	# io.set 'flash policy port', 0 # nodejitsu does like not other ports
-	io.set 'transports', ['websocket', 'htmlfile', 'xhr-polling', 'jsonp-polling']
+	io.set 'transports', ['websocket', 'htmlfile', 'xhr-polling']
 	
 
 io.configure 'development', ->
@@ -1002,8 +1002,8 @@ app.post '/set-settings', ensureAuthenticated, (req, res) ->
 	User.update({"email":req.user.email}, {$set: {"username":req.body.username}}).exec()
 	res.redirect '/user/settings'
 
-app.get '/user/library', ensureAuthenticated, (req, res) ->
-	res.render './user/library.jade', {user:req.user, hashed_email:md5(req.user.email)}
+app.get '/user/starred', ensureAuthenticated, (req, res) ->
+	res.render './user/starred.jade', {user:req.user, hashed_email:md5(req.user.email)}
 	
 app.get '/', (req, res) -> 
 	res.render './info/home.jade', {user:req.user}
