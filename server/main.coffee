@@ -102,7 +102,7 @@ if app.settings.env is 'development'
 					compileCoffee()
 
 
-		file_list = ['app', 'offline', 'auth']
+		file_list = ['app', 'offline', 'auth', 'stats']
 		
 		compileCoffee = ->
 			file = file_list.shift()
@@ -992,7 +992,15 @@ app.get '/user/profile', ensureAuthenticated, (req, res) ->
 	res.render './user/profile.jade', {user:req.user, hashed_email:md5(req.user.email)}
 
 app.get '/user/stats', ensureAuthenticated,  (req, res) -> 
-	res.render './user/stats.jade', {user:req.user, hashed_email:md5(req.user.email)}
+	user = req.user
+	hashed_email = md5(req.user.email)
+
+	query = Event.find({"uid":sha1(user.email)})
+		
+	execute_query query, (data) -> 
+		stat_data = data
+
+		res.render './user/stats.jade', {user:user, stat_data: stat_data, hashed_email:hashed_email}
 
 app.get '/user/settings', ensureAuthenticated, (req, res) ->
 	res.render './user/settings.jade', {user:req.user, hashed_email:md5(req.user.email)}
@@ -1034,6 +1042,7 @@ app.post '/auth/link', (req, res, next) ->
 		req.login user, (err) ->
 
 			Event.update({"uid":req.body.id}, {$set: {"uid":sha1(user.email)}}, {multi:true}).exec()
+	
 
 			rooms[req.body.room].merge_user(req.body.id, sha1(user.email))
 
