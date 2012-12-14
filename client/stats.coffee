@@ -1,56 +1,53 @@
 #= require ./lib/d3.v2.js
 
-data = [        
-	[12345,42345,3234,22345,72345,62345,32345,92345,52345,22345], 
-	[1234,4234,3234,2234,7234,6234,3234,9234,5234,2234] 
-]
+get_events = (callback) -> 
+    $.get '/user/data', (data) ->
 
-console.log(stat_data)
-
-blah = #{rawr}
 width = 625
 height = 350
 
-x = d3.scale.linear()
-    .domain([0,data[0].length])  
-    .range([0, width])
+radius = Math.min(width, height) / 2
 
-y = d3.scale.linear()
-    .domain([0,d3.max(data[0])])  
-    .range([height, 0])
+color = d3.scale.ordinal()
+    .range(["#98abc5", "#8a89a6", "#7b6888", "#6b486b", "#a05d56", "#d0743c", "#ff8c00"]);
 
-line = d3.svg.line()
-    .x((d,i) -> return x(i))
-    .y((d) -> return y(d))
+pie = d3.layout.pie()
+    .sort(null)
+    .value((d) -> return d.population)
 
-area = d3.svg.area()
-    .x(line.x())
-    .y1(line.y())
-    .y0(y(0))
-
-svg = d3.select("#viz").append("svg")
+svg = d3.select("body").append("svg")
     .attr("width", width)
     .attr("height", height)
+  .append("g")
+    .attr("transform", "translate(" + width / 2 + "," + height / 2 + ")")
 
-lines = svg.selectAll("g")
-  .data(data)  
 
-aLineContainer = lines
-  .enter().append("g")
+pie_chart_data (data) ->
+    counts = {"Fine Arts":0, "Science":0, "Social Science":0, "History":0, "Geography":0, "Literature":0, "Philosophy":0, "Religion":0, "Trash":0}
+    points = {"Fine Arts":0, "Science":0, "Social Science":0, "History":0, "Geography":0, "Literature":0, "Philosophy":0, "Religion":0, "Trash":0}
+    for e in $.parseJSON(data)
+        counts[e.category] += 1
+        if e.ruling then points[e.category] += 1 else points[e.category] -= .5
 
-aLineContainer.append("path")
-    .attr("class", "area")
-    .attr("d", area)
 
-aLineContainer.append("path")
-    .attr("class", "line")
-    .attr("d", line)
 
-aLineContainer.selectAll(".dot")
-  .data (d, i) -> return d 
-  .enter()
-    .append("circle")
-    .attr("class", "dot")
-    .attr("cx", line.x())
-    .attr("cy", line.y())
-    .attr("r", 3.5)
+      arc = d3.svg.arc()
+        .outerRadius((d) ->
+            return d.data.poops
+        )
+        .innerRadius(0)
+
+      g = svg.selectAll(".arc")
+        .data(pie(data))
+      .enter().append("g")
+        .attr("class", "arc");
+
+      g.append("path")
+        .attr("d", arc)
+        .style("fill", (d) -> return color(d.data.age))
+
+      g.append("text")
+        .attr("transform", (d) -> return "translate(" + arc.centroid(d) + ")")
+        .attr("dy", ".35em")
+        .style("text-anchor", "middle")
+        .text((d) -> return d.data.age)

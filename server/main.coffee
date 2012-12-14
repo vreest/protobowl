@@ -221,6 +221,7 @@ event_schema = new mongoose.Schema {
 	, tspent: Number
 	, answer: String
 	, category: String
+	, difficulty: String
 	, guess: String
 	ruling: Boolean
 }
@@ -228,7 +229,7 @@ event_schema = new mongoose.Schema {
 feedback_schema = new mongoose.Schema {
 	name: String
 	, email: String
-	, feedback: String
+	feedback: String
 }
 
 ## -------------------- User Database Models --------------------- ## 
@@ -413,7 +414,8 @@ class SocketQuizRoom extends QuizRoom
 				"seen":  user.seen,
 				"tspent": user.time_spent,
 				"answer": @answer,
-				"category": @question.category,
+				"category": @info.category,
+				"difficulty": @info.difficulty,
 				"guess": @attempt.text,
 				"ruling": ruling
 			}
@@ -992,15 +994,7 @@ app.get '/user/profile', ensureAuthenticated, (req, res) ->
 	res.render './user/profile.jade', {user:req.user, hashed_email:md5(req.user.email)}
 
 app.get '/user/stats', ensureAuthenticated,  (req, res) -> 
-	user = req.user
-	hashed_email = md5(req.user.email)
-
-	query = Event.find({"uid":sha1(user.email)})
-		
-	execute_query query, (data) -> 
-		stat_data = data
-
-		res.render './user/stats.jade', {user:user, stat_data: stat_data, hashed_email:hashed_email}
+	res.render './user/stats.jade', {user:req.user, hashed_email:md5(req.user.email)}
 
 app.get '/user/settings', ensureAuthenticated, (req, res) ->
 	res.render './user/settings.jade', {user:req.user, hashed_email:md5(req.user.email)}
@@ -1012,7 +1006,13 @@ app.post '/set-settings', ensureAuthenticated, (req, res) ->
 
 app.get '/user/starred', ensureAuthenticated, (req, res) ->
 	res.render './user/starred.jade', {user:req.user, hashed_email:md5(req.user.email)}
-	
+
+app.get '/user/data', ensureAuthenticated, (req, res) ->
+	query = Event.find({"uid":sha1(req.user.email)})		
+	execute_query query, (data) -> 
+		stat_data = JSON.stringify(data)
+		res.end(stat_data)
+
 app.get '/', (req, res) -> 
 	res.render './info/home.jade', {user:req.user}
 
