@@ -62,7 +62,7 @@ rate_limit_check = ->
 		createAlert $('.bundle.active'), 'Rate Limited', "You been rate limited for doing too many things in the past five seconds. "
 	return rate_limited
 
-# last_skip = 0
+
 skip = ->
 	return if rate_limit_check()
 	me.skip()
@@ -75,7 +75,6 @@ next = ->
 $('.skipbtn').click skip
 
 $('.nextbtn').click next
-
 
 $('.buzzbtn').click ->
 	return if $('.buzzbtn').attr('disabled') is 'disabled'
@@ -104,7 +103,14 @@ $('.buzzbtn').click ->
 			setActionMode ''
 			_gaq.push ['_trackEvent', 'Game', 'Response Latency', 'Buzz Rejected', new Date - submit_time] if window._gaq
 
-$('.score-reset').click -> me.reset_score()
+$('.score-reset').click -> 
+	# i could have structured this is a more concise but weirder way
+	# but for some reason i decided against that, and I know not why
+	if me.score() > 50
+		if confirm("Are you sure you want to reset your score?") is false
+			return 
+
+	me.reset_score()
 
 $('.lose-command').click -> me.cincinnatus()
 
@@ -209,10 +215,13 @@ chat = (text, done) ->
 				protobot_write pick(omeglebot_replies[text.replace(/[^a-z]/g, '')])
 				protobot_last = $('.chat_input').data('input_session')
 			else if done
-				reply = pick Object.keys(omeglebot_replies)
-				reply = pick omeglebot_replies[reply]
-				protobot_write reply
-				# doesnt matter to set protobot last because you dont repeat afterwars anyway
+				if Math.random() < 0.1 and room.active_count() > 1
+					protobot_write 'Looks like some other people exist. Just say "stahp" if you want me to die in a hole, or if you want to stop sounding schizophrenic.'
+				else
+					reply = pick Object.keys(omeglebot_replies)
+					reply = pick omeglebot_replies[reply]
+					protobot_write reply
+					# doesnt matter to set protobot last because you dont repeat afterwars anyway
 		
 
 	if text.slice(0, 1) is '@'
@@ -296,6 +305,11 @@ $('.prompt_form').submit (e) ->
 	e.preventDefault()
 	
 
+key_can_skip = true
+
+$('body').keyup (e) ->
+	if e.keyCode in [83] # S
+		key_can_skip = true
 
 $('body').keydown (e) ->
 	if actionMode is 'chat'
@@ -317,7 +331,9 @@ $('body').keydown (e) ->
 		else
 			$('.buzzbtn').click()
 	else if e.keyCode in [83] # S
-		skip()
+		if key_can_skip
+			key_can_skip = false
+			skip()
 	else if e.keyCode in [78, 74] # N, J
 		next()
 	else if e.keyCode in [75]
@@ -343,11 +359,11 @@ $('body').keydown (e) ->
 		$('.bundle.active .bookmark').click()
 
 	# debugging shortcuts	
-	if location.hostname is 'localhost'
+	if location.hostname is 'localhost' or me.id?[0] is '_'
 		# console.log e.keyCode, 'local'
 		if e.keyCode in [68] # D
 			me.buzz(room.qid)
-			me.guess { text: room.answer.replace(/(\(|\[).*/, ''), done: true }
+			me.guess { text: room.answer.replace(/(\(|\[).*/, '').replace(/\{|\}/g, ''), done: true }
 		else if e.keyCode in [69] # E
 			me.buzz(room.qid)
 			me.guess { text: '', done: true }

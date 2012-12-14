@@ -43,9 +43,14 @@ offline_startup = ->
 		initialize_fallback() if initialize_fallback?
 
 setTimeout ->
-	if room.active_count() <= 1
+	if room.active_count() <= 1 and Math.random() < 0.1
 		chatAnnotation({text: 'Feeling lonely offline? Just say "I\'m Lonely" and talk to me!' , user: '__protobot', done: true})
 , 30 * 1000
+
+setTimeout ->
+	if navigator.onLine
+		notifyLike()
+, 1000 * 60 * 10
 
 
 disconnect_notice = ->
@@ -64,11 +69,35 @@ disconnect_notice = ->
 			of questions without interruption. However, you might want to try <a href=''>reloading</a>.")
 	addImportant $('<div>').addClass('log disconnect-notice').append(line)
 
+	$.getJSON 'https://api.github.com/gists/4272390?callback=?', ({data, meta}) ->
+		if data?.files?['protobowl-status.html']?.content not in ['Nothing', null]
+			message = $('<div>').addClass 'emergency-message'
+			message.append $('<div>').addClass('alert alert-info').html(data.files['protobowl-status.html'].content)
+			$('.emergency-message').remove()
+			$('#history').before message
+
+
+
+
+# this is the slightly overcomplicated system 
 sock = null
 has_connected = false
+secure_socket = null
+insecure_socket = null
 
 online_startup = ->
+
 	reconnect = ->
+		cookie = jQuery.cookie('protocookie')
+
+		sock.emit 'join', {
+			cookie,
+			question_type: room.type,
+			room_name: room.name,
+			# old_socket: localStorage.old_socket,
+			version: 6
+		}
+
 		$('.disconnect-notice').slideUp()
 		# allow the user to reload/disconnect/reconnect
 		$('#reload, #disconnect, #reconnect').hide()
@@ -76,78 +105,78 @@ online_startup = ->
 
 
 	select_socket = (socket) ->
-		sock = socket
-		for name, fn of room.__listeners
-			sock.on name, fn
-		
-		cookie = jQuery.cookie('protocookie')
+		if sock and sock isnt socket
+			console.log 'disconnecting from select'
+			sock.disconnect()
 
-		sock.emit 'join', {
-			cookie,
-			question_type: room.type,
-			room_name: room.name,
-			old_socket: localStorage.old_socket,
-			version: 6
-		}
+		if sock
+			sock.removeAllListeners()
 		
+		sock = socket
+		if sock is secure_socket
+			verbAnnotation {verb: "established a connection to the secure server"}
+		else
+			verbAnnotation {verb: "established a connection to the server"}
+	
 		sock.on 'disconnect', disconnect_notice
 
+		for name, fn of room.__listeners
+			sock.on name, fn
+
 		reconnect()
-
-		localStorage.old_socket = sock.socket.sessionid
-
+		# localStorage.old_socket = sock.socket.sessionid
 		load_bookmarked_questions()
 	
+	check_connection = (socket) ->
+		if sock
+			if sock is socket
+				reconnect()
+			else
+				setTimeout ->
+					if sock.socket.connected is true
+						socket.disconnect()
+						socket.removeAllListeners()
+					else
+						select_socket socket
+				, 2718
+		else
+			select_socket socket
+
 	# so some firewalls block unsecure websockets but allow secure stuff
 	# so try to connect to both!
 	insecure_socket = io.connect location.hostname, {
-		"connect timeout": 3000, 
+		"connect timeout": 5000, 
 		"force new connection": true
 	}
-
-	if location.protocol is 'http:' and location.hostname isnt 'localhost'
-		secure_socket = io.connect 'https://protobowl.nodejitsu.com/', {
-			"port": 443,
-			"connect timeout": 5000,
-			"force new connection": true
-		}
-		secure_socket.on 'connect', ->
-			if sock
-				if sock is secure_socket
-					reconnect()
-				else
-					secure_socket.disconnect()
-					secure_socket.removeAllListeners()
-			else
-				select_socket secure_socket
-
-	insecure_socket.on 'connect', ->
-		if sock
-			if sock is insecure_socket
-				reconnect()
-			else
-				insecure_socket.disconnect()
-				insecure_socket.removeAllListeners()
+	insecure_socket.on 'connect', -> check_connection(insecure_socket)
+	if location.protocol is 'http:'
+		if location.hostname is 'localhost'
+			secure_socket = io.connect 'localhost', {
+				"port": 1337,
+				"connect timeout": 5000,
+				"force new connection": true
+			}
 		else
-			select_socket insecure_socket
+			secure_socket = io.connect 'https://protobowl.nodejitsu.com/', {
+				"port": 443,
+				"connect timeout": 5000,
+				"force new connection": true,
+				"secure": true
+			}
+		secure_socket.on 'connect', -> check_connection(secure_socket)
 
 
-if io?
-	online_startup()
 
-	setTimeout ->
-		$('#slow').slideDown() if !has_connected
-	, 1000 * 2
 
-	setTimeout initialize_offline, 1000
-else
-	offline_startup()
-
+bookmarks_loaded = false
 load_bookmarked_questions = ->
+	return if bookmarks_loaded
+	bookmarks_loaded = true
+
 	bookmarks = []
 	try
 		bookmarks = JSON.parse(localStorage.bookmarks)
-	for question in bookmarks
+	for question in bookmarks || []
 		bundle = create_bundle(question)
 		bundle.find('.readout').hide()
 		$('#history').prepend bundle
@@ -182,7 +211,7 @@ class QuizPlayerSlave extends QuizPlayerClient
 
 				# TODO: possibly delay this call until certain offline component is loaded
 				# master_action.call(this, data, callback)
-				room.users[me.id][name](data, callback)
+				room.users[me.id]?[name]?(data, callback)
 
 	constructor: (room, id) ->
 		super(room, id)
@@ -235,8 +264,7 @@ class QuizRoomSlave extends QuizRoom
 				cb(question || error_question)
 
 
-room = new QuizRoomSlave()
-room.name = location.pathname.replace(/^\/*/g, '').toLowerCase()
+room = new QuizRoomSlave(location.pathname.replace(/^\/*/g, '').toLowerCase() || 'temporary')
 room.type = (if room.name.split('/').length is 2 then room.name.split('/')[0] else 'qb')
 me = new QuizPlayerSlave(room, 'temporary')
 
@@ -275,6 +303,7 @@ listen 'delete_user', (id) ->
 listen 'joined', (data) ->
 	has_connected = true
 	$('#slow').slideUp()
+	$('.disconnect-notice').slideUp()
 
 	me.id = data.id
 	
@@ -332,17 +361,20 @@ synchronize = (data) ->
 			user_blacklist = ['id']
 			for user in data.users
 				unless user.id of room.users
-						room.users[user.id] = new QuizPlayerClient(room, user.id)
+					room.users[user.id] = new QuizPlayerClient(room, user.id)
 
 				for attr, val of user when attr not in user_blacklist
 					room.users[user.id][attr] = val
+				
+				# me != users[me.id] 
+				# that's a fairly big change that is being implemented
+				
+				if user.id is me.id
+					for attr, val of user when attr not in user_blacklist
+						me[attr] = val
 			
-			# me != users[me.id] 
-			# that's a fairly big change that is being implemented
-
-			if me.id of data.users
-				for attr, val of data.users[me.id] when attr not in user_blacklist
-					me[attr] = val
+			
+			
 
 	renderParameters() if 'difficulties' of data
 	renderUpdate()
@@ -473,5 +505,16 @@ do -> # isolate variables from globals
 
 	if window.applicationCache
 		for name in ['cached', 'checking', 'downloading', 'error', 'noupdate', 'obsolete', 'progress', 'updateready']
-			applicationCache.addEventListener name, cache_event
+			applicationCache.addEventListener name, cache_event, false
 
+
+if io?
+	online_startup()
+
+	setTimeout ->
+		$('#slow').slideDown() if !has_connected
+	, 1000 * 3
+
+	setTimeout initialize_offline, 1000
+else
+	offline_startup()

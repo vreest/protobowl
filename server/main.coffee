@@ -36,7 +36,7 @@ app.set 'views', "server/views" # directory where the jade files are
 app.set 'trust proxy', true
 
 
-io = require('socket.io').listen(server)
+io = require('socket.io').listen(server, {'origins': '*:*'})
 
 io.configure 'production', ->
 	io.set "log level", 0
@@ -90,7 +90,7 @@ if app.settings.env is 'development'
 
 				parser.parse data, (err, tree) ->
 					css = tree?.toCSS {
-						compress: true
+						compress: false
 					}
 
 					source_list.push {
@@ -108,7 +108,7 @@ if app.settings.env is 'development'
 			file = file_list.shift()
 			return saveFiles() if !file
 			
-			snockets.getConcatenation "client/#{file}.coffee", minify: true, (err, js) ->
+			snockets.getConcatenation "client/#{file}.coffee", minify: false, (err, js) ->
 				source_list.push {
 					hash: sha1(js + ''),
 					code: "protobowl_#{file}_build = '#{compile_date}';\n#{js}", 
@@ -308,7 +308,7 @@ app.use passport.session()
 # simple helper functions that hashes things
 sha1 = (text) ->
 	hash = crypto.createHash('sha1')
-	hash.update(text)
+	hash.update(text + '')
 	hash.digest('hex')
 
 md5 = (text) ->
@@ -334,7 +334,7 @@ app.use (req, res, next) ->
 		expire_date = new Date()
 		expire_date.setFullYear expire_date.getFullYear() + 2
 
-		res.cookie 'protocookie', sha1(seed), {
+		res.cookie 'protocookie', sha1(seed + ''), {
 			expires: expire_date,
 			httpOnly: false,
 			signed: false,
@@ -620,42 +620,41 @@ io.sockets.on 'connection', (sock) ->
 	
 	is_ninja = 'ninja' of config.query	
 
-	if config.host isnt 'protobowl.com' and app.settings.env isnt 'development' and config.protocol is 'http:'
-		config.host = 'protobowl.com'
-		sock.emit 'application_update', +new Date
-		sock.emit 'redirect', url.format(config)
-		sock.disconnect()
-		return
+	# if config.host isnt 'protobowl.com' and app.settings.env isnt 'development' and config.protocol is 'http:'
+	# 	config.host = 'protobowl.com'
+	# 	sock.emit 'application_update', Date.now()
+	# 	sock.emit 'force_application_update', Date.now()
+	# 	sock.emit 'redirect', url.format(config)
+	# 	sock.disconnect()
+	# 	return
 
 	if config.pathname is '/stalkermode/patriot'
 		sock.join 'stalkermode-dash'
 		return
 
-	# # configger the things which are derived from said parsed stuff
+	# configger the things which are derived from said parsed stuff
+	
+	user = null
 
-	# if is_ninja and config.pathname is '/scalar.html'
-	# 	room_name = "room-#{Math.floor(Math.random() * 42)}"
-	# 	publicID = ("#{Math.floor(Math.random() * 20)}0000000000000000000000000000000000000000").slice(0, 40)
-	# 	is_ninja = false
-
-	sock.on 'disco', (data) ->
-		sock.emit 'force_application_update', Date.now()
-		sock.disconnect()
-
-	sock.on 'join', ({cookie, room_name, question_type, old_socket, version}) ->
-		if !version or version < 6
+	sock.on 'join', ({cookie, room_name, question_type, old_socket, version, custom_id}) ->
+		if user
+			sock.emit 'debug', "For some reason it appears you are a zombie. Please contact info@protobowl.com because this is worthy of investigation."
+			return
+		if !version or version < 6 or !room_name
 			sock.emit 'force_application_update', Date.now()
+			sock.emit 'application_update', Date.now()
 			sock.disconnect()
-		io.sockets.socket(old_socket)?.disconnect() if old_socket
-		publicID = sha1(cookie + room_name)
+			return
+		# io.sockets.socket(old_socket)?.disconnect() if old_socket
+		publicID = sha1(cookie + room_name + '')
 		# get the room
 		load_room room_name, (room, is_new) ->
 			room.type = question_type if is_new
 
 			if is_ninja
 				publicID = "__secret_ninja_#{Math.random().toFixed(4).slice(2)}" 
-				if 'id' of config.query
-					publicID = (config.query.id + "0000000000000000000000000000000000000000").slice(0, 40)
+				if custom_id
+					publicID = (custom_id + "0000000000000000000000000000000000000000").slice(0, 40)
 					is_ninja = false
 
 			# get the user's identity
@@ -696,6 +695,7 @@ refresh_stale = ->
 		if !room.archived or Date.now() - room.archived > STALE_TIME
 			# the room hasn't been archived in a few minutes
 			remote.archiveRoom? room
+			journal_queue[name] = null
 			delete journal_queue[name]
 			
 
@@ -708,6 +708,7 @@ process_queue = ->
 	[min_time, min_room] = [Date.now(), null]
 	for name, time of journal_queue
 		if !rooms[name]
+			journal_queue[name] = null
 			delete journal_queue[name]
 			continue			
 		[min_time, min_room] = [time, name] if time < min_time
@@ -715,6 +716,7 @@ process_queue = ->
 	room = rooms[min_room]
 	if !room?.archived or Date.now() - room?.archived > 1000 * 10
 		remote.archiveRoom? room
+		journal_queue[min_room] = null
 		delete journal_queue[min_room]
 
 setInterval process_queue, 1000	
@@ -740,6 +742,7 @@ clearInactive = ->
 	rank_user = (u) -> if u.correct > 2 then u.last_action else u.time_spent
 	reap_room = (name) ->
 		log 'reap_room', name
+		rooms[name] = null
 		delete rooms[name]
 		remote.removeRoom?(name)
 		reaped.rooms++
@@ -764,6 +767,8 @@ clearInactive = ->
 		reaped.correct += u.correct
 		reaped.time_spent += u.time_spent
 		reaped.last_action = +new Date
+
+		u.room.users[u.id] = null
 		delete u.room.users[u.id]
 
 	for room_name, room of rooms
@@ -798,6 +803,7 @@ swapInactive = ->
 		continue if shortest_lapse < 1000 * 60 * 20 # things are stale after a few minutes
 		# ripe for swapping
 		remote.archiveRoom? room, (name) ->
+			rooms[name] = null
 			delete rooms[name]
 
 if remote.archiveRoom
@@ -850,6 +856,28 @@ app.get '/stalkermode/room/:room', (req, res) ->
 	res.render './ninja/control.jade', { room: u, name: req.params.room, text: util.inspect(u2)}
 
 app.post '/stalkermode/stahp', (req, res) -> process.exit(0)
+
+app.post '/stalkermode/the-scene-is-safe', (req, res) -> 
+	names = (name for name, time of journal_queue)
+	restart_server = ->
+		console.log 'Server shutdown has been manually triggered'
+		setTimeout ->
+			process.exit(0)
+		, 250
+	if names.length is 0
+		res.end 'Nothing to save; Server restarted.' 
+		restart_server()
+		return
+	start_time = Date.now()
+	saved = 0
+	increment_and_check = ->
+		saved++
+		if saved is names.length
+			res.end "Saved #{names.length} rooms (#{names.join(', ')}) in #{Date.now() - start_time}ms; Server restarted."
+			restart_server()
+	for name in names
+		remote.archiveRoom? rooms[name], increment_and_check
+
 
 app.post '/stalkermode/clear_bans/:room', (req, res) ->
 	delete rooms?[req.params.room]?._ip_bans
