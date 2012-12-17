@@ -549,7 +549,7 @@ class SocketQuizPlayer extends QuizPlayer
 				sock.on attr, (args...) => 
 					if @banned and @room.serverTime() < @banned
 						@ban()
-					else if @__rate_limited and @room.serverTime() < @__rate_limited
+					else if @__rate_limited and @room.serverTime() < @__rate_limited and app.settings.env is 'production'
 						@throttle()
 					else
 						try
