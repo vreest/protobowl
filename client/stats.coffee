@@ -79,11 +79,21 @@ bar = (data) ->
 		if value > maxvalue
 			maxvalue = value
 
-	narwhal = for category, mittens of counts when mittens
-		{
-			category: category,
-			seen: counts[category]
-		}
+	blah = 0
+	aNar = []
+
+	for category, mittens of counts when mittens
+		blah += 25
+		narwhal = {
+					category: category,
+					seen: counts[category], 
+					range: blah
+				}
+
+		aNar.push(narwhal)
+
+
+	console.log(aNar)
 
 
 	margin = {top: 20, right: 20, bottom: 30, left: 40}
@@ -132,10 +142,10 @@ bar = (data) ->
 	  .text("Frequency");
 
 	svg.selectAll(".bar")
-	  .data(narwhal)
+	  .data(aNar)
 	.enter().append("rect")
 	  .attr("class", "bar")
-	  .attr("x", (d) -> x(d.seen))
 	  .attr("width", 20)
-	  .attr("y", (d) -> y(d.seen))
+	  .attr("y", 0)
+	  .attr("x", (d) -> d.range)
 	  .attr("height", (d) -> height - y(d.seen));
