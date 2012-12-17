@@ -3,6 +3,7 @@
 get_events = (callback) -> 
 	$.get '/user/data', (data) ->
 		pie_chart data
+		bar data
 
 get_events()
 
@@ -58,21 +59,83 @@ pie_chart = (data) ->
 
 	g.append("path")
 		.attr("d", arc)
-		.style("fill", (d) -> return color(d.data.age))
+		.style("fill", (d) -> color(d.data.age))
 
 	g.append("text")
-		.attr("transform", (d) -> return "translate(" + arc.centroid(d) + ")")
+		.attr("transform", (d) -> "translate(" + arc.centroid(d) + ")")
 		.attr("dy", ".35em")
 		.style("text-anchor", "middle")
 		.text((d) -> d.data.age)
 
 
 bar = (data) ->
-	radius = Math.min(width, height) / 2
+	counts = {"Fine Arts":0, "Science":0, "Social Science":0, "History":0, "Geography":0, "Literature":0, "Philosophy":0, "Religion":0, "Trash":0}
+	for e in $.parseJSON(data)
+		counts[e.category] += 1
+
+	maxvalue = 0
+	for category of counts
+		value = counts[category]
+		if value > maxvalue
+			maxvalue = value
+
+	narwhal = for category, mittens of counts when mittens
+		{
+			category: category,
+			seen: counts[category]
+		}
+
+
+	margin = {top: 20, right: 20, bottom: 30, left: 40}
+	width = 960 - margin.left - margin.right
+	height = 500 - margin.top - margin.bottom
+
+	formatPercent = d3.format(".0%");
+
+	x = d3.scale.ordinal()
+	    .range(9, 0);
+
+	y = d3.scale.linear()
+	    .range([height, 0]);
+
+	xAxis = d3.svg.axis()
+	    .scale(x)
+	    .orient("bottom");
+
+	yAxis = d3.svg.axis()
+	    .scale(y)
+	    .orient("left")
+	    .tickFormat(formatPercent);
 
 	svg = d3.select("#bar").append("svg")
-		.attr("width", width)
-		.attr("height", height)
-		.append("g")
-		.attr("transform", "translate(" + width / 2 + "," + height / 2 + ")")
+	    .attr("width", width + margin.left + margin.right)
+	    .attr("height", height + margin.top + margin.bottom)
+	  .append("g")
+	    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
 
+	x.domain(9)
+	y.domain([0, maxvalue])
+
+	svg.append("g")
+	  .attr("class", "x axis")
+	  .attr("transform", "translate(0," + height + ")")
+	  .call(xAxis);
+
+	svg.append("g")
+	  .attr("class", "y axis")
+	  .call(yAxis)
+	.append("text")
+	  .attr("transform", "rotate(-90)")
+	  .attr("y", 6)
+	  .attr("dy", ".71em")
+	  .style("text-anchor", "end")
+	  .text("Frequency");
+
+	svg.selectAll(".bar")
+	  .data(narwhal)
+	.enter().append("rect")
+	  .attr("class", "bar")
+	  .attr("x", (d) -> x(d.seen))
+	  .attr("width", 20)
+	  .attr("y", (d) -> y(d.seen))
+	  .attr("height", (d) -> height - y(d.seen));
