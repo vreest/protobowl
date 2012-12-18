@@ -664,6 +664,7 @@ toggle_bookmark = (info, state) ->
 	if state is true
 		# create bookmark
 		bookmarks.push info
+		console.log(info)
 
 	localStorage.bookmarks = JSON.stringify(bookmarks)
 
