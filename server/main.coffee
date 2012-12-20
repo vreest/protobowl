@@ -208,6 +208,11 @@ user_schema = new mongoose.Schema {
 	email: String
 	, stash: [cache_schema]
 	, username: String
+	, real_name: String
+	, location: String
+	, fav_categ: String
+	, bio: String
+	, grav_email: String
 	ninja: Number
 }
 
@@ -1018,6 +1023,7 @@ app.get '/user/settings', ensureAuthenticated, (req, res) ->
 	res.render './user/settings.jade', {user:req.user, hashed_email:md5(req.user.email)}
 
 app.post '/set-settings', ensureAuthenticated, (req, res) ->
+	# TODO update location, grav_email, and real name
 	req.user.username = req.body.username
 	User.update({"email":req.user.email}, {$set: {"username":req.body.username}}).exec()
 	res.redirect '/user/settings'
@@ -1060,7 +1066,6 @@ app.post '/auth/link', (req, res, next) ->
 		req.login user, (err) ->
 
 			Event.update({"uid":req.body.id}, {$set: {"uid":sha1(user.email)}}, {multi:true}).exec()
-	
 
 			rooms[req.body.room].merge_user(req.body.id, sha1(user.email))
 
