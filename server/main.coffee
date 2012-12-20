@@ -16,8 +16,6 @@ util = require 'util'
 passport = require 'passport'
 BrowserID = require('passport-browserid').Strategy
 
-parseCookie = require('express/node_modules/cookie').parse
-
 mongoose = require 'mongoose'
 crypto = require 'crypto'
 
@@ -26,7 +24,7 @@ rooms = {}
 {QuizPlayer} = require '../shared/player'
 {checkAnswer} = require '../shared/checker'
 
-names = require '../shared/names'
+namer = require '../shared/names'
 uptime_begin = +new Date
 
 app = express()
@@ -51,11 +49,12 @@ io.configure 'development', ->
 	io.set "browser client minification", false
 	io.set "browser client gzip", false
 	io.set 'flash policy port', 0
-	io.set 'transports', ['websocket', 'flashsocket', 'htmlfile', 'xhr-polling', 'jsonp-polling']
+	io.set 'transports', ['websocket', 'htmlfile', 'xhr-polling', 'jsonp-polling']
 	
 
 journal_config = { host: 'localhost', port: 15865 }
 log_config = { host: 'localhost', port: 18228 }
+
 
 if app.settings.env is 'development'
 	less = require 'less'
@@ -68,6 +67,7 @@ if app.settings.env is 'development'
 			CoffeeScript.compile source, {filename: sourcePath, bare: true}
 
 	snockets = new Snockets()
+
 
 	scheduledUpdate = null
 	path = require 'path'
@@ -140,6 +140,7 @@ if app.settings.env is 'development'
 						saved_count++
 						if saved_count is source_list.length
 							writeManifest(unihash)
+
 
 		writeManifest = (hash) ->
 			data = cache_text.replace(/INSERT_DATE.*?\n/, 'INSERT_DATE '+(new Date).toString() + " # #{hash}\n")
@@ -431,7 +432,7 @@ class SocketQuizRoom extends QuizRoom
 		return false if !@users[id]
 		if @users[new_id]
 			# merge current user into this one
-			sum_terms = ['guesses', 'interrupts', 'early', 'seen', 'correct', 'tspent']
+			sum_terms = ['guesses', 'interrupts', 'early', 'seen', 'correct', 'time_spent']
 			for term in sum_terms
 				@users[new_id][term] += @users[id][term]
 			delete @users[id]
@@ -440,8 +441,7 @@ class SocketQuizRoom extends QuizRoom
 			@users[new_id] = @users[id]
 			@users[new_id].id = new_id
 			delete @users[id]
-		
-		@users[new_id].sid = id
+			
 		@emit 'rename_user', {old_id: id, new_id: new_id}
 		@sync(1)
 		
@@ -459,7 +459,7 @@ class SocketQuizPlayer extends QuizPlayer
 	constructor: (room, id) ->
 		super(room, id)
 		@sockets = []
-		@name = names.generateName()
+		@name = namer.generateName()
 	
 	chat: (data) ->
 		super(data)
@@ -554,7 +554,7 @@ class SocketQuizPlayer extends QuizPlayer
 				sock.on attr, (args...) => 
 					if @banned and @room.serverTime() < @banned
 						@ban()
-					else if @__rate_limited and @room.serverTime() < @__rate_limited and app.settings.env is 'production'
+					else if @__rate_limited and @room.serverTime() < @__rate_limited and @id[0] != '_' and app.settings.env isnt 'development'
 						@throttle()
 					else
 						try
@@ -828,7 +828,7 @@ app.post '/stalkermode/algore', (req, res) ->
 app.get '/stalkermode/users', (req, res) -> res.render './ninja/users.jade', { rooms: rooms }
 
 app.get '/stalkermode/cook', (req, res) ->
-	remote.cook(req, res)
+	remote.cook?(req, res)
 	res.redirect '/stalkermode'
 
 app.get '/stalkermode/logout', (req, res) ->
@@ -853,13 +853,13 @@ app.get '/stalkermode/room/:room', (req, res) ->
 app.post '/stalkermode/stahp', (req, res) -> process.exit(0)
 
 app.post '/stalkermode/the-scene-is-safe', (req, res) -> 
-	names = (name for name, time of journal_queue)
+	user_names = (name for name, time of journal_queue)
 	restart_server = ->
 		console.log 'Server shutdown has been manually triggered'
 		setTimeout ->
 			process.exit(0)
 		, 250
-	if names.length is 0
+	if user_names.length is 0
 		res.end 'Nothing to save; Server restarted.' 
 		restart_server()
 		return
@@ -867,10 +867,10 @@ app.post '/stalkermode/the-scene-is-safe', (req, res) ->
 	saved = 0
 	increment_and_check = ->
 		saved++
-		if saved is names.length
-			res.end "Saved #{names.length} rooms (#{names.join(', ')}) in #{Date.now() - start_time}ms; Server restarted."
+		if saved is user_names.length
+			res.end "Saved #{user_names.length} rooms (#{user_names.join(', ')}) in #{Date.now() - start_time}ms; Server restarted."
 			restart_server()
-	for name in names
+	for name in user_names
 		remote.archiveRoom? rooms[name], increment_and_check
 
 
@@ -978,22 +978,48 @@ app.post '/stalkermode/reports/change_question/:id', (req, res) ->
 	mongoose = require 'mongoose'
 	blacklist = ['inc_random', 'seen']
 	remote.Question.findById mongoose.Types.ObjectId(req.params.id), (err, doc) ->
+		criterion = {
+			difficulty: req.body.difficulty || doc.difficulty, 
+			category: req.body.category || doc.category, 
+			type: req.body.type || doc.type
+		}
+		remote.Question.collection.findOne criterion, null, { sort: { inc_random: 1 } }, (err, existing) ->
+			for key, val of req.body when key not in blacklist
+				doc[key] = val
+			doc.inc_random = existing.inc_random - 0.1 # show it now
+			doc.save()
+			res.end('gots it')
+
+app.post '/stalkermode/reports/simple_change/:id', (req, res) ->
+	mongoose = require 'mongoose'
+	blacklist = ['inc_random', 'seen']
+	remote.Question.findById mongoose.Types.ObjectId(req.params.id), (err, doc) ->
 		for key, val of req.body when key not in blacklist
 			doc[key] = val
 		doc.save()
 		res.end('gots it')
 
+
 app.get '/stalkermode/reports/all', (req, res) ->
+	return res.render 'reports.jade', { reports: [], categories: [] } unless remote.Report
+
 	remote.Report.find {}, (err, docs) ->
 		res.render './ninja/reports.jade', { reports: docs, categories: remote.get_categories('qb') }
 
 app.get '/stalkermode/reports/:type', (req, res) ->
+	return res.render 'reports.jade', { reports: [], categories: [] } unless remote.Report
+
 	remote.Report.find {describe: req.params.type}, (err, docs) ->
 		res.render './ninja/reports.jade', { reports: docs, categories: remote.get_categories('qb') }
+
+app.get '/stalkermode/audacity', (req, res) ->
+	res.render 'audacity.jade', { }
+
 
 app.get '/stalkermode/patriot', (req, res) -> res.render './ninja/dash.jade'
 
 app.get '/stalkermode/archived', (req, res) -> 
+	return res.render 'archived.jade', { list: [], rooms } unless remote.listArchived
 	remote.listArchived (list) ->
 		res.render './ninja/archived.jade', { list, rooms }
 
@@ -1003,7 +1029,7 @@ app.get '/401', (req, res) -> res.render './ninja/auth.jade', {}
 
 app.post '/401', (req, res) -> remote.authenticate(req, res)
 
-app.get '/new', (req, res) -> res.redirect '/' + names.generatePage()
+app.get '/new', (req, res) -> res.redirect '/' + namer.generatePage()
 
 ensureAuthenticated = (req, res, next) ->
 	return next() if req.isAuthenticated()
