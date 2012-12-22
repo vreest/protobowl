@@ -40,7 +40,6 @@ io.configure 'production', ->
 	io.set "log level", 0
 	io.set "browser client minification", true
 	io.set "browser client gzip", true
-	# io.set 'flash policy port', 0 # nodejitsu does like not other ports
 	io.set 'transports', ['websocket', 'htmlfile', 'xhr-polling']
 	
 
@@ -1039,13 +1038,13 @@ app.get '/signin', (req, res) ->
 	return res.redirect(req.query.return || '/') if req.user
 	res.render './info/signin.jade', {user:req.user}
 
-app.get '/user/profile', ensureAuthenticated, (req, res) -> 
+app.get '/u', ensureAuthenticated, (req, res) -> 
 	res.render './user/profile.jade', {user:req.user, hashed_email:md5(req.user.email)}
 
-app.get '/user/stats', ensureAuthenticated,  (req, res) -> 
+app.get '/u/stats', ensureAuthenticated,  (req, res) -> 
 	res.render './user/stats.jade', {user:req.user, hashed_email:md5(req.user.email)}
 
-app.get '/user/settings', ensureAuthenticated, (req, res) ->
+app.get '/u/settings', ensureAuthenticated, (req, res) ->
 	res.render './user/settings.jade', {user:req.user, hashed_email:md5(req.user.email)}
 
 app.post '/set-settings', ensureAuthenticated, (req, res) ->
@@ -1054,14 +1053,57 @@ app.post '/set-settings', ensureAuthenticated, (req, res) ->
 	User.update({"email":req.user.email}, {$set: {"username":req.body.username}}).exec()
 	res.redirect '/user/settings'
 
-app.get '/user/starred', ensureAuthenticated, (req, res) ->
+app.get '/u/starred', ensureAuthenticated, (req, res) ->
 	res.render './user/starred.jade', {user:req.user, hashed_email:md5(req.user.email)}
 
-app.get '/user/data', ensureAuthenticated, (req, res) ->
+app.get '/u/data', ensureAuthenticated, (req, res) ->
 	query = Event.find({"uid":sha1(req.user.email)})		
 	execute_query query, (data) -> 
 		stat_data = JSON.stringify(data)
 		res.end(stat_data)
+
+app.get '/u/:username', ensureAuthenticated, (req, res) ->
+	username = req.params.username
+	if req.user.username is username
+		res.redirect '/u/'
+	else
+		query = User.find({"username":username})		
+		execute_query query, (data) -> 
+			if data
+				res.render './social/profile.jade', {
+					user:req.user, 
+					render:data, 
+					hashed_email:md5(data[0].email)
+				}
+			else
+				res.render './social/not-found.jade'
+
+app.get '/u/:type/:username', ensureAuthenticated, (req, res) ->
+	username = req.params.username
+	type = req.params.type
+
+	if req.user.username is username
+		res.redirect '/u/' + type
+	else
+		typelist = ["stats", "profile", "protobudd"]
+		personQuery = User.find({"username":username})
+		execute_query personQuery, (data) ->
+			if data 
+				if type is typelist[0]
+					res.render './social/stats.jade', {
+						user:req.user,
+						render:data,
+						hashed_email:md5(data[0].email)
+					}
+				else if type is typelist[1]
+					res.redirect '/social/' + username
+				else if type is typelist[2]
+					res.render './social/protobudds.jade'
+				else
+					res.render './social/not-found.jade'
+			else
+				res.render './social/not-found.jade'
+		
 
 app.get '/', (req, res) -> 
 	res.render './info/home.jade', {user:req.user}

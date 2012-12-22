@@ -3,7 +3,7 @@
 ## TODO - Refactor the rediculour variables out
 
 get_events = (callback) ->
-	$.get '/user/data', (data) ->
+	$.get '/u/data', (data) ->
 		pie_chart data
 		bar data
 		area data
@@ -178,6 +178,7 @@ bar = (data) ->
 area = (data) ->
 
 	## Need to change the dates to regular dates like 12/19/12
+	console.log(data)
 
 	margin = {top: 20, right: 20, bottom: 30, left: 50}
 	width = 960 - margin.left - margin.right
