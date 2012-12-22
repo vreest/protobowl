@@ -1052,19 +1052,23 @@ app.get '/u/data', ensureAuthenticated, (req, res) ->
 
 app.get '/u/:username', ensureAuthenticated, (req, res) ->
 	username = req.params.username
+	self_reflection = false
+
 	if username is req.user.username
-		res.render './user/profile.jade', {user:req.user, hashed_email:md5(req.user.email)}
-	else
-		query = User.find({"username":username})		
-		execute_query query, (data) -> 
-			if data
-				res.render './social/profile.jade', {
-					user:req.user, 
-					render:data, 
-					hashed_email:md5(data[0].email)
-				}
-			else
-				res.render './social/not-found.jade'
+		self_reflection = true 
+
+	query = User.find({"username":username})		
+	execute_query query, (data) -> 
+		console.log(req.user)
+		if data[0]
+			res.render './user/profile.jade', {
+				user:req.user, 
+				self:self_reflection,
+				data:data[0], 
+				hashed_email:md5(data[0].email)
+			}
+		else
+			res.render './user/not-found.jade'
 
 app.get '/u/:username/:type', ensureAuthenticated, (req, res) ->
 	username = req.params.username
@@ -1074,10 +1078,10 @@ app.get '/u/:username/:type', ensureAuthenticated, (req, res) ->
 	if username is req.user.username
 		self_reflection = true 
 
-	typelist = ["stats", "profile", "frands", "chieves", "starred"]
+	typelist = ["stats", "frands", "chieves", "starred"]
 	personQuery = User.find({"username":username})
 	execute_query personQuery, (data) ->
-		if data 
+		if data[0] 
 			if type is typelist[0]
 				res.render './user/stats.jade', {
 					user:req.user,
@@ -1086,27 +1090,20 @@ app.get '/u/:username/:type', ensureAuthenticated, (req, res) ->
 					hashed_email: md5(data[0].email)
 				}
 			else if type is typelist[1]
-				res.render './user/profile.jade', {
-					user:req.user,
-					self:self_reflection,
-					data:data[0],
-					hashed_email: md5(data[0].email)
-				}
-			else if type is typelist[2]
 				res.render './user/frands.jade', {
 					user:req.user,
 					self:self_reflection,
 					data:data,
 					hashed_email: md5(data[0].email)
 				}
-			else if type is typelist[3]
+			else if type is typelist[2]
 				res.render './user/chieves.jade', {
 					user:req.user,
 					self:self_reflection,
 					data:data,
 					hashed_email: md5(data[0].email)
 				}
-			else if type is typelist[4]
+			else if type is typelist[3]
 				res.render './user/starred.jade', {
 					user:req.user,
 					self:self_reflection,
