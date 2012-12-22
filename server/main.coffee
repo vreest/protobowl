@@ -1038,23 +1038,11 @@ app.get '/signin', (req, res) ->
 	return res.redirect(req.query.return || '/') if req.user
 	res.render './info/signin.jade', {user:req.user}
 
-app.get '/u', ensureAuthenticated, (req, res) -> 
-	res.render './user/profile.jade', {user:req.user, hashed_email:md5(req.user.email)}
-
-app.get '/u/stats', ensureAuthenticated,  (req, res) -> 
-	res.render './user/stats.jade', {user:req.user, hashed_email:md5(req.user.email)}
-
-app.get '/u/settings', ensureAuthenticated, (req, res) ->
-	res.render './user/settings.jade', {user:req.user, hashed_email:md5(req.user.email)}
-
 app.post '/set-settings', ensureAuthenticated, (req, res) ->
 	# TODO update location, grav_email, and real name
 	req.user.username = req.body.username
 	User.update({"email":req.user.email}, {$set: {"username":req.body.username}}).exec()
 	res.redirect '/user/settings'
-
-app.get '/u/starred', ensureAuthenticated, (req, res) ->
-	res.render './user/starred.jade', {user:req.user, hashed_email:md5(req.user.email)}
 
 app.get '/u/data', ensureAuthenticated, (req, res) ->
 	query = Event.find({"uid":sha1(req.user.email)})		
@@ -1064,8 +1052,8 @@ app.get '/u/data', ensureAuthenticated, (req, res) ->
 
 app.get '/u/:username', ensureAuthenticated, (req, res) ->
 	username = req.params.username
-	if req.user.username is username
-		res.redirect '/u/'
+	if username is req.user.username
+		res.render './user/profile.jade', {user:req.user, hashed_email:md5(req.user.email)}
 	else
 		query = User.find({"username":username})		
 		execute_query query, (data) -> 
@@ -1078,31 +1066,57 @@ app.get '/u/:username', ensureAuthenticated, (req, res) ->
 			else
 				res.render './social/not-found.jade'
 
-app.get '/u/:type/:username', ensureAuthenticated, (req, res) ->
+app.get '/u/:username/:type', ensureAuthenticated, (req, res) ->
 	username = req.params.username
 	type = req.params.type
+	self_reflection = false
 
-	if req.user.username is username
-		res.redirect '/u/' + type
-	else
-		typelist = ["stats", "profile", "protobudd"]
-		personQuery = User.find({"username":username})
-		execute_query personQuery, (data) ->
-			if data 
-				if type is typelist[0]
-					res.render './social/stats.jade', {
-						user:req.user,
-						render:data,
-						hashed_email:md5(data[0].email)
-					}
-				else if type is typelist[1]
-					res.redirect '/social/' + username
-				else if type is typelist[2]
-					res.render './social/protobudds.jade'
-				else
-					res.render './social/not-found.jade'
+	if username is req.user.username
+		self_reflection = true 
+
+	typelist = ["stats", "profile", "frands", "chieves", "starred"]
+	personQuery = User.find({"username":username})
+	execute_query personQuery, (data) ->
+		if data 
+			if type is typelist[0]
+				res.render './user/stats.jade', {
+					user:req.user,
+					self:self_reflection,
+					data:data,
+					hashed_email: md5(data[0].email)
+				}
+			else if type is typelist[1]
+				res.render './user/profile.jade', {
+					user:req.user,
+					self:self_reflection,
+					data:data[0],
+					hashed_email: md5(data[0].email)
+				}
+			else if type is typelist[2]
+				res.render './user/frands.jade', {
+					user:req.user,
+					self:self_reflection,
+					data:data,
+					hashed_email: md5(data[0].email)
+				}
+			else if type is typelist[3]
+				res.render './user/chieves.jade', {
+					user:req.user,
+					self:self_reflection,
+					data:data,
+					hashed_email: md5(data[0].email)
+				}
+			else if type is typelist[4]
+				res.render './user/starred.jade', {
+					user:req.user,
+					self:self_reflection,
+					data:data,
+					hashed_email: md5(data[0].email)
+				}
 			else
 				res.render './social/not-found.jade'
+		else
+			res.render './social/not-found.jade'
 		
 
 app.get '/', (req, res) -> 

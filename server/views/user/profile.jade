@@ -8,20 +8,23 @@ block nine
 	hr
 	img(src='http://gravatar.com/avatar/' + hashed_email)	
 
-	
-	h3 Username: #{user.username}
-	h3 Email: #{user.email}
-	h3 Location:
-	h3 Real Name:
-	h3 Ninja:
-		if user.ninja == 0
-			|  No
-		else if user.ninja == 1
-			|  Ninja >><< PEWPEW
-		else if user.ninja == 2
-			| SUPER FUCKING NINJA PEW
-		else
-			| NO
+	block nine
+		h3 Username: #{user.username}
+		h3 Email: #{user.email}
+		h3 Location:
+		h3 Real Name:
+		h3 Ninja:
+			if user.ninja == 0
+				|  No
+			else if user.ninja == 1
+				|  Ninja >><< PEWPEW
+			else if user.ninja == 2
+				| SUPER FUCKING NINJA PEW
+			else
+				| NO
+
+	block nine
+		h3 Username: #{data.username}
 
 	
 	
